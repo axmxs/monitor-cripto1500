@@ -2,9 +2,8 @@ from flask import Flask
 from threading import Thread
 import time
 import requests
-import os
 
-# === CONFIGURAÇÕES SEGURAS ===
+# === CONFIGURAÇÕES ===
 TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
 CHAT_ID = os.getenv('TELEGRAM_CHAT_ID')
 INTERVALO_MINUTOS = 2
