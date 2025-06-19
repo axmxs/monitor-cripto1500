@@ -12,15 +12,12 @@ TOKEN = os.getenv("TOKEN")
 CHAT_ID = os.getenv("CHAT_ID")
 INTERVALO_MINUTOS = 5
 
-# === FLASK PARA UPTIMEROBOT ===
+# === FLASK APP ===
 app = Flask(__name__)
 
 @app.route('/')
 def home():
     return '✅ Bot monitor está rodando.'
-
-def manter_online():
-    app.run(host='0.0.0.0', port=3000)
 
 # === ENVIO DE MENSAGEM ===
 def enviar_mensagem(texto):
@@ -31,14 +28,16 @@ def enviar_mensagem(texto):
     except Exception as e:
         print("Erro ao enviar:", e)
 
-# === LOOP PRINCIPAL ===
+# === LOOP DE MONITORAMENTO EM BACKGROUND ===
 def iniciar_monitoramento():
     while True:
         enviar_mensagem("✅ Bot ativo — mensagem automática de teste a cada 5 minutos.")
         print("Mensagem enviada.")
         time.sleep(INTERVALO_MINUTOS * 60)
 
-# === EXECUÇÃO ===
+# === INÍCIO ===
 if __name__ == '__main__':
-    Thread(target=manter_online).start()
-    iniciar_monitoramento()  # Agora esta função roda na thread principal
+    # Inicia o monitoramento em background
+    Thread(target=iniciar_monitoramento).start()
+    # Inicia o servidor Flask na thread principal
+    app.run(host='0.0.0.0', port=3000)
