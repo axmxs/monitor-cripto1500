@@ -1,6 +1,7 @@
 services:
-  - type: worker
-    name: monitor-telegram-teste
-    runtime: python
+  - type: web
+    name: monitor-cripto1500
+    env: python
     buildCommand: ""
     startCommand: "python main.py"
+    plan: free
