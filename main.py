@@ -4,8 +4,8 @@ import time
 import requests
 
 # === CONFIGURAÇÕES ===
-TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
-CHAT_ID = os.getenv('TELEGRAM_CHAT_ID')
+TOKEN = '7581368628:AAFr6Yy13gar8Ege40Rzaa7q_uJBTW7WSdI'
+CHAT_ID = '556381811'
 INTERVALO_MINUTOS = 2
 
 # === FLASK PARA UPTIMEROBOT ===
