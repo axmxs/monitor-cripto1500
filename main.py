@@ -37,7 +37,9 @@ def iniciar_monitoramento():
 
 # === INÍCIO ===
 if __name__ == '__main__':
-    # Inicia o monitoramento em background
+    # Inicia a thread que envia mensagens
     Thread(target=iniciar_monitoramento).start()
-    # Inicia o servidor Flask na thread principal
+
+    # Executa o Flask na thread principal
     app.run(host='0.0.0.0', port=3000)
+
