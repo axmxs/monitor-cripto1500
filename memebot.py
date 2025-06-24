@@ -1,35 +1,18 @@
-def iniciar_memebot():
-    print("🚀 Memebot iniciado.")
-    threading.Thread(target=acompanhar_tokens, daemon=True).start()
+import time
+import threading
+import requests
+from datetime import datetime, timedelta
+from dotenv import load_dotenv
+import os
 
-    while True:
-        tokens = buscar_tokens_novos()
-        for token in tokens:
-            if not analisar_token(token):
-                continue
+load_dotenv()
+TOKEN = os.getenv("TOKEN")
+CHAT_ID = os.getenv("CHAT_ID")
 
-            contrato = token['pairAddress']
-            nome = token['baseToken']['symbol']
-            preco = float(token['priceUsd'])
-            mc = float(token.get('fdv', 0))
-            liquidez = float(token['liquidity']['usd'])
-            holders = token.get("holders", "?")
+# ===== CONFIGURAÇÕES =====
+INTERVALO_ANALISE = 180  # em segundos (3 minutos)
+LUCRO_ALVO_1 = 100       # % para primeiro alerta de venda
+LUCRO_ALVO_2 = 200       # % para segundo alerta de venda
+API_DEXTOOLS = "https://api.dexscreener.com/latest/dex/pairs/bsc"
 
-            if contrato not in tokens_monitorados:
-                tokens_monitorados[contrato] = {
-                    "preco_inicial": preco,
-                    "ultima_verificacao": datetime.utcnow(),
-                }
-
-                msg = (
-                    f"🚨 <b>NOVO ALERTA DE MEME COIN</b>\n\n"
-                    f"Token: <b>{nome}</b>\n"
-                    f"Market Cap: ${mc:,.0f}\n"
-                    f"Liquidez: ${liquidez:,.0f}\n"
-                    f"Preço Inicial: ${preco:.6f}\n"
-                    f"🧠 Detecção de possível pump (nas próximas horas).\n\n"
-                    f"🔗 <a href='https://dexscreener.com/bsc/{contrato}'>Ver Gráfico</a>"
-                )
-                enviar_mensagem(msg)
-
-        time.sleep(INTERVALO_ANALISE)
+# Tokens em aco
