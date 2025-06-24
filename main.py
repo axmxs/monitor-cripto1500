@@ -4,6 +4,7 @@ import time
 import requests
 import os
 from dotenv import load_dotenv
+from memebot import iniciar_memebot  # IMPORTA O MEMEBOT AQUI
 
 # === CONFIG ===
 load_dotenv()
@@ -119,17 +120,8 @@ def monitorar():
         print("🟢 Alerta enviado. Nova verificação em breve...")
         time.sleep(INTERVALO_MINUTOS * 60)
 
-# === START ===
+# === INÍCIO DOS BOTS ===
 if __name__ == '__main__':
     Thread(target=manter_online).start()
+    Thread(target=iniciar_memebot).start()  # AGORA O MEMEBOT VAI RODAR
     monitorar()
-
-# === Memebot ===
-from memebot import iniciar_memebot
-from threading import Thread
-
-if __name__ == '__main__':
-    Thread(target=manter_online).start()
-    Thread(target=iniciar_memebot).start()
-    monitorar()
-
