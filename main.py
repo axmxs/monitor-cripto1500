@@ -123,3 +123,13 @@ def monitorar():
 if __name__ == '__main__':
     Thread(target=manter_online).start()
     monitorar()
+
+# === Memebot ===
+from memebot import iniciar_memebot
+from threading import Thread
+
+if __name__ == '__main__':
+    Thread(target=manter_online).start()
+    Thread(target=iniciar_memebot).start()
+    monitorar()
+
