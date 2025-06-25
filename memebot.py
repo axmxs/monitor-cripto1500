@@ -1,6 +1,4 @@
-# memebot.py (V3 - Parte 1: análise de redes sociais)
-
-import time
+""import time
 import threading
 import requests
 from datetime import datetime, timedelta
@@ -11,14 +9,18 @@ load_dotenv()
 TOKEN = os.getenv("TOKEN")
 CHAT_ID = os.getenv("CHAT_ID")
 
-INTERVALO_ANALISE = 180  # segundos
-LUCRO_ALVO_1 = 100
-LUCRO_ALVO_2 = 200
+# ===== CONFIGURAÇÕES =====
+INTERVALO_ANALISE = 180  # em segundos (3 minutos)
+LUCRO_ALVO_1 = 100  # % para primeiro alerta de venda
+LUCRO_ALVO_2 = 200  # % para segundo alerta
 API_DEXTOOLS = "https://api.dexscreener.com/latest/dex/pairs/bsc"
-API_SOCIAL = "https://cryptopanic-social-api.vercel.app/check?symbol="  # fictícia para simulação
+API_SOCIAL_HYPE = "https://cryptopanic-social-api/check"
+API_RUGCHECK = "https://rugcheck-api/check"
 
+# Tokens monitorados após alerta (estrutura: {contract: {...}})
 tokens_monitorados = {}
 
+# === Envio de mensagem Telegram ===
 def enviar_mensagem(texto):
     url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
     payload = {'chat_id': CHAT_ID, 'text': texto, 'parse_mode': 'HTML'}
@@ -27,6 +29,7 @@ def enviar_mensagem(texto):
     except Exception as e:
         print("Erro ao enviar:", e)
 
+# === Buscar tokens novos via DEXTools ===
 def buscar_tokens_novos():
     try:
         r = requests.get(API_DEXTOOLS)
@@ -35,39 +38,46 @@ def buscar_tokens_novos():
     except:
         return []
 
-def esta_sendo_comentado(symbol):
+# === Análise social simulada ===
+def tem_hype_social(symbol):
     try:
-        r = requests.get(API_SOCIAL + symbol)
-        result = r.json()
-        return result.get("mentions", 0) > 10  # 10 menções recentes = relevante
+        r = requests.get(f"{API_SOCIAL_HYPE}?symbol={symbol}")
+        data = r.json()
+        return data.get("mentions", 0) >= 10  # mínimo 10 menções
     except:
         return False
 
+# === Análise rug pull básica ===
+def passou_verificacao_rug(token):
+    try:
+        contract = token.get("pairAddress")
+        r = requests.get(f"{API_RUGCHECK}?address={contract}")
+        data = r.json()
+        return data.get("safe", False)
+    except:
+        return False
+
+# === Verifica se o token é novo, seguro e com hype ===
 def analisar_token(token):
     try:
-        if token['chainId'] != 'bsc':
-            return False
-        if not token.get("baseToken") or not token.get("quoteToken"):
-            return False
-        if float(token['liquidity']['usd']) < 50000:
-            return False
-        if float(token['fdv']) > 300000:
-            return False
-        if float(token['priceUsd']) <= 0:
-            return False
-        minutos = (datetime.utcnow() - datetime.strptime(token['pairCreatedAt'], '%Y-%m-%dT%H:%M:%S.%fZ')).total_seconds() / 60
-        if minutos > 180:
-            return False
+        if token['chainId'] != 'bsc': return False
+        if not token.get("baseToken") or not token.get("quoteToken"): return False
+        if float(token['liquidity']['usd']) < 50000: return False
+        if float(token['fdv']) > 300000: return False
+        if float(token['priceUsd']) <= 0: return False
 
-        symbol = token['baseToken']['symbol']
-        if not esta_sendo_comentado(symbol):
-            print(f"🔍 Token ignorado sem hype: {symbol}")
-            return False
+        minutos = (datetime.utcnow() - datetime.strptime(token['pairCreatedAt'], '%Y-%m-%dT%H:%M:%S.%fZ')).total_seconds() / 60
+        if minutos > 180: return False
+
+        nome = token['baseToken']['symbol']
+        if not tem_hype_social(nome): return False
+        if not passou_verificacao_rug(token): return False
 
         return True
     except:
         return False
 
+# === Monitorar tokens após alerta ===
 def acompanhar_tokens():
     while True:
         for contrato, info in list(tokens_monitorados.items()):
@@ -101,6 +111,7 @@ def acompanhar_tokens():
 
         time.sleep(300)
 
+# === Iniciar análise e alertas ===
 def iniciar_memebot():
     print("🚀 Memebot iniciado.")
     threading.Thread(target=acompanhar_tokens, daemon=True).start()
@@ -130,7 +141,7 @@ def iniciar_memebot():
                     f"Market Cap: ${mc:,.0f}\n"
                     f"Liquidez: ${liquidez:,.0f}\n"
                     f"Preço Inicial: ${preco:.6f}\n"
-                    f"🧠 Detectado hype social + liquidez.\n"
+                    f"🔥 Com hype social detectado e verificação de segurança passada.\n\n"
                     f"🔗 <a href='https://dexscreener.com/bsc/{contrato}'>Ver Gráfico</a>"
                 )
                 enviar_mensagem(msg)
