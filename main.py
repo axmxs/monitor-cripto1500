@@ -1,6 +1,8 @@
+import os
 import requests
 
-LUNAR_API_KEY = "auwc4pvmbtitld19c8oo92ftmcc08hvtgcdrpil"
+# Carrega a chave do ambiente
+LUNAR_API_KEY = os.getenv("LUNAR_API_KEY")
 
 headers = {
     "Authorization": f"Bearer {LUNAR_API_KEY}"
