@@ -1,4 +1,6 @@
-""import time
+# memebot.py (versão V3) - Rede BNB Chain
+
+import time
 import threading
 import requests
 from datetime import datetime, timedelta
@@ -11,13 +13,13 @@ CHAT_ID = os.getenv("CHAT_ID")
 
 # ===== CONFIGURAÇÕES =====
 INTERVALO_ANALISE = 180  # em segundos (3 minutos)
-LUCRO_ALVO_1 = 100  # % para primeiro alerta de venda
-LUCRO_ALVO_2 = 200  # % para segundo alerta
+LUCRO_ALVO_1 = 100       # % para primeiro alerta de venda
+LUCRO_ALVO_2 = 200       # % para segundo alerta
 API_DEXTOOLS = "https://api.dexscreener.com/latest/dex/pairs/bsc"
-API_SOCIAL_HYPE = "https://cryptopanic-social-api/check"
-API_RUGCHECK = "https://rugcheck-api/check"
+API_SOCIAL = "https://api.coinbrain.com/social-scan"  # (mock/placeholder)
+API_CANDLES = "https://api.dexscreener.com/stats/candles?pairAddress={contract}&interval=1m"
 
-# Tokens monitorados após alerta (estrutura: {contract: {...}})
+# Tokens monitorados após alerta (estrutura: {contract: {"preco_inicial": float, "ultima_verificacao": timestamp}})
 tokens_monitorados = {}
 
 # === Envio de mensagem Telegram ===
@@ -38,40 +40,78 @@ def buscar_tokens_novos():
     except:
         return []
 
-# === Análise social simulada ===
-def tem_hype_social(symbol):
+# === Análise social ===
+def analisar_rede_social(symbol):
     try:
-        r = requests.get(f"{API_SOCIAL_HYPE}?symbol={symbol}")
-        data = r.json()
-        return data.get("mentions", 0) >= 10  # mínimo 10 menções
+        # Modo simulado (em versões futuras usar API real como LunarCrush, Coinbrain, etc)
+        mencoes = symbol.lower().count("pepe") + 4  # mock
+        engajamento = 80 if "pepe" in symbol.lower() else 10
+        return mencoes > 3 and engajamento > 50
     except:
         return False
 
-# === Análise rug pull básica ===
-def passou_verificacao_rug(token):
+# === Análise técnica ===
+def analise_tecnica(contrato):
     try:
-        contract = token.get("pairAddress")
-        r = requests.get(f"{API_RUGCHECK}?address={contract}")
-        data = r.json()
-        return data.get("safe", False)
+        url = API_CANDLES.format(contract=contrato)
+        r = requests.get(url)
+        candles = r.json().get("candles", [])[-5:]
+
+        if len(candles) < 5:
+            return False
+
+        altas = 0
+        volumes = []
+        corpos = []
+
+        for c in candles:
+            open_ = float(c['open'])
+            close = float(c['close'])
+            volume = float(c['volume'])
+            corpo = abs(close - open_)
+
+            if close > open_:
+                altas += 1
+            volumes.append(volume)
+            corpos.append(corpo)
+
+        volume_crescente = volumes == sorted(volumes)
+        media_corpo = sum(corpos[:-1]) / 4
+        ultimo_corpo = corpos[-1]
+
+        pavio = float(candles[-1]['high']) - float(candles[-1]['close'])
+        rejeicao = pavio > ultimo_corpo * 0.7
+
+        return altas >= 3 and ultimo_corpo > 2 * media_corpo and volume_crescente and not rejeicao
     except:
         return False
 
-# === Verifica se o token é novo, seguro e com hype ===
+# === Verifica se o token é novo e seguro ===
 def analisar_token(token):
     try:
-        if token['chainId'] != 'bsc': return False
-        if not token.get("baseToken") or not token.get("quoteToken"): return False
-        if float(token['liquidity']['usd']) < 50000: return False
-        if float(token['fdv']) > 300000: return False
-        if float(token['priceUsd']) <= 0: return False
-
+        if token['chainId'] != 'bsc':
+            return False
+        if not token.get("baseToken") or not token.get("quoteToken"):
+            return False
+        if float(token['liquidity']['usd']) < 50000:
+            return False
+        if float(token['fdv']) > 300000:
+            return False
+        if float(token['priceUsd']) <= 0:
+            return False
         minutos = (datetime.utcnow() - datetime.strptime(token['pairCreatedAt'], '%Y-%m-%dT%H:%M:%S.%fZ')).total_seconds() / 60
-        if minutos > 180: return False
+        if minutos > 180:
+            return False
 
-        nome = token['baseToken']['symbol']
-        if not tem_hype_social(nome): return False
-        if not passou_verificacao_rug(token): return False
+        # Novas verificacoes
+        symbol = token['baseToken']['symbol']
+        contrato = token['pairAddress']
+
+        if not analisar_rede_social(symbol):
+            return False
+
+        if not analise_tecnica(contrato):
+            return False
 
         return True
     except:
@@ -104,6 +144,7 @@ def acompanhar_tokens():
                             msg = f"⚠️ <b>Queda de {variacao:.2f}%</b> em {token['baseToken']['symbol']}\nPossível reversão ou rug. Avalie saída."
                             enviar_mensagem(msg)
 
+                        # Limpeza após 6h
                         if datetime.utcnow() - info['ultima_verificacao'] > timedelta(hours=6):
                             del tokens_monitorados[contrato]
             except Exception as e:
@@ -127,7 +168,6 @@ def iniciar_memebot():
             preco = float(token['priceUsd'])
             mc = float(token.get('fdv', 0))
             liquidez = float(token['liquidity']['usd'])
-            holders = token.get("holders", "?")
 
             if contrato not in tokens_monitorados:
                 tokens_monitorados[contrato] = {
@@ -141,7 +181,7 @@ def iniciar_memebot():
                     f"Market Cap: ${mc:,.0f}\n"
                     f"Liquidez: ${liquidez:,.0f}\n"
                     f"Preço Inicial: ${preco:.6f}\n"
-                    f"🔥 Com hype social detectado e verificação de segurança passada.\n\n"
+                    f"🧠 Detecção com base em redes sociais + gráfico de alta\n\n"
                     f"🔗 <a href='https://dexscreener.com/bsc/{contrato}'>Ver Gráfico</a>"
                 )
                 enviar_mensagem(msg)
