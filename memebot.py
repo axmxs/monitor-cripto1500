@@ -118,7 +118,7 @@ def acompanhar_tokens():
         except Exception as e:
             print("Erro ao monitorar token:", e)
 
-        time.sleep(300)
+        time.sleep(60)
 
 def iniciar_memebot():
     print("🚀 Memebot iniciado.")
