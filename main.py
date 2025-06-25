@@ -1,6 +1,6 @@
 import requests
 
-LUNAR_API_KEY = auwc4pvmbtitld19c8oo92ftmcc08hvtgcdrpil
+LUNAR_API_KEY = "auwc4pvmbtitld19c8oo92ftmcc08hvtgcdrpil"
 
 headers = {
     "Authorization": LUNAR_API_KEY
