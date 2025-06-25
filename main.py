@@ -4,7 +4,7 @@ import time
 import requests
 import os
 from dotenv import load_dotenv
-from memebot import iniciar_memebot  # IMPORTA O MEMEBOT AQUI
+from memebot import iniciar_memebot  # Importa o memebot
 
 # === CONFIG ===
 load_dotenv()
@@ -12,7 +12,7 @@ TOKEN = os.getenv("TOKEN")
 CHAT_ID = os.getenv("CHAT_ID")
 INTERVALO_MINUTOS = 30
 
-# === GATILHOS ===
+# === GATILHOS DE ALERTA ===
 gatilhos = {
     'alta_forte': 40,
     'alta_media': 25,
@@ -22,7 +22,7 @@ gatilhos = {
     'preju_total': -300
 }
 
-# === CARTEIRA ===
+# === CARTEIRA CRIPTO ===
 ativos = {
     'bittensor': {'nome': 'TAO', 'compra': 416.80, 'quantidade': 0.1975781},
     'wormhole': {'nome': 'W', 'compra': 281.97, 'quantidade': 785.49619314},
@@ -50,7 +50,7 @@ def enviar_mensagem(texto):
     try:
         requests.post(url, data=payload)
     except Exception as e:
-        print("Erro ao enviar:", e)
+        print("Erro ao enviar mensagem:", e)
 
 # === COINGECKO COM RECONEXÃO ===
 def precos_reais(tentativas=3, espera=2):
@@ -68,7 +68,7 @@ def precos_reais(tentativas=3, espera=2):
         time.sleep(espera)
     return {}
 
-# === MONITORAMENTO ===
+# === MONITORAMENTO DA CARTEIRA ===
 def monitorar():
     while True:
         dados = precos_reais()
@@ -104,7 +104,6 @@ def monitorar():
                 linha += " ⚠️ Queda moderada"
             msg.append(linha)
 
-        # Se menos da metade dos ativos retornarem preço, não envia o alerta
         if ativos_validos < len(ativos) // 2:
             print("⏸️ Dados insuficientes para envio (ativos com preço válido insuficiente).")
             time.sleep(INTERVALO_MINUTOS * 60)
@@ -120,8 +119,8 @@ def monitorar():
         print("🟢 Alerta enviado. Nova verificação em breve...")
         time.sleep(INTERVALO_MINUTOS * 60)
 
-# === INÍCIO DOS BOTS ===
+# === INÍCIO DOS THREADS ===
 if __name__ == '__main__':
     Thread(target=manter_online).start()
-    Thread(target=iniciar_memebot).start()  # AGORA O MEMEBOT VAI RODAR
+    Thread(target=iniciar_memebot).start()
     monitorar()
