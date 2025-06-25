@@ -1,15 +1,12 @@
 import requests
 
-# Sua chave real da LunarCrush
 LUNAR_API_KEY = "auwc4pvmbtitld19c8oo92ftmcc08hvtgcdrpil"
 
-# Cabeçalho correto com Bearer
 headers = {
     "Authorization": f"Bearer {LUNAR_API_KEY}"
 }
 
-# URL de teste (pegando dados de mercado do Bitcoin, por exemplo)
-url = "https://api.lunarcrush.com/v4?data=market&key=bitcoin"
+url = "https://api.lunarcrush.com/v2?data=assets&symbol=BTC"
 
 try:
     response = requests.get(url, headers=headers)
