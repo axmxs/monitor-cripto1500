@@ -10,10 +10,15 @@ from datetime import datetime, timedelta
 load_dotenv()
 TOKEN = os.getenv("TOKEN")
 CHAT_ID = os.getenv("CHAT_ID")
+LUNAR_API_KEY = os.getenv("LUNAR_API_KEY")
 INTERVALO_MINUTOS = 30
 LUCRO_ALVO_1 = 100
 LUCRO_ALVO_2 = 200
 API_DEXTOOLS = "https://api.dexscreener.com/latest/dex/pairs/bsc"
+
+headers_lunar = {
+    "Authorization": f"Bearer {LUNAR_API_KEY}"
+}
 
 # === FLASK PARA RENDER/UPTIME ROBOT ===
 app = Flask(__name__)
@@ -40,25 +45,30 @@ def verificar_goplus(token_address):
         url = f"https://api.gopluslabs.io/api/v1/token_security/56?contract_addresses={token_address}"
         r = requests.get(url)
         data = r.json()
-        # Opcional: analisar segurança
         return data
     except Exception as e:
         print("Erro GoPlus Labs:", e)
         return {}
 
-# === LUNARCRUSH ===
-def verificar_lunar():
-    LUNAR_API_KEY = os.getenv("LUNAR_API_KEY")
-    headers = {"Authorization": f"Bearer {LUNAR_API_KEY}"}
-    url = "https://api.lunarcrush.com/v2?data=assets&symbol=BTC"
+# === LUNARCRUSH ANALYTICS ===
+def verificar_social_lunar(symbol):
     try:
-        r = requests.get(url, headers=headers)
+        url = f"https://api.lunarcrush.com/v2?data=assets&symbol={symbol.upper()}"
+        r = requests.get(url, headers=headers_lunar, timeout=10)
         if r.status_code == 200:
-            enviar_mensagem("✅ LunarCrush conectado com sucesso.")
-        else:
-            enviar_mensagem(f"⚠️ Erro LunarCrush: {r.status_code}")
+            data = r.json().get("data", [])
+            if not data:
+                return None
+            token_data = data[0]
+            return {
+                "social_volume": token_data.get("social_volume", 0),
+                "galaxy_score": token_data.get("galaxy_score", 0),
+                "alt_rank": token_data.get("alt_rank", 999)
+            }
+        return None
     except Exception as e:
-        enviar_mensagem(f"Erro ao conectar LunarCrush: {e}")
+        print("Erro ao consultar LunarCrush:", e)
+        return None
 
 # === MEMEBOT ===
 tokens_monitorados = {}
@@ -126,7 +136,7 @@ def acompanhar_tokens():
 
 def iniciar_memebot():
     print("🚀 Memebot iniciado.")
-    threading.Thread(target=acompanhar_tokens, daemon=True).start()
+    Thread(target=acompanhar_tokens, daemon=True).start()
 
     while True:
         tokens = buscar_tokens_novos()
@@ -151,13 +161,29 @@ def iniciar_memebot():
                 if goplus.get('result', {}).get(contrato, {}).get('is_open_source') == '0':
                     score = "⚠️ Código fechado"
 
+                social = verificar_social_lunar(nome)
+                social_msg = ""
+                if social:
+                    if social['social_volume'] >= 500 or social['galaxy_score'] >= 60 or social['alt_rank'] <= 25:
+                        social_msg = (
+                            f"\n\n🔥 Social Volume: {social['social_volume']}\n"
+                            f"🧠 Galaxy Score: {social['galaxy_score']}\n"
+                            f"📈 Alt Rank: {social['alt_rank']}\n"
+                            f"🚀 Muita atenção — tendência viral!"
+                        )
+                    else:
+                        social_msg = f"\n\n📉 Baixo engajamento social no momento."
+                else:
+                    social_msg = f"\n\n❔ Dados sociais indisponíveis."
+
                 msg = (
                     f"🚨 <b>NOVO ALERTA DE MEME COIN</b>\n\n"
                     f"Token: <b>{nome}</b>\n"
                     f"Market Cap: ${mc:,.0f}\n"
                     f"Liquidez: ${liquidez:,.0f}\n"
                     f"Preço Inicial: ${preco:.6f}\n"
-                    f"{score}\n"
+                    f"{score}"
+                    f"{social_msg}\n"
                     f"🔗 <a href='https://dexscreener.com/bsc/{contrato}'>Ver Gráfico</a>"
                 )
                 enviar_mensagem(msg)
@@ -168,4 +194,3 @@ def iniciar_memebot():
 if __name__ == '__main__':
     Thread(target=manter_online).start()
     Thread(target=iniciar_memebot).start()
-    verificar_lunar()
