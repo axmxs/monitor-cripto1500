@@ -13,7 +13,7 @@ TOKEN = os.getenv("TOKEN")
 CHAT_ID = os.getenv("CHAT_ID")
 LUNAR_API_KEY = os.getenv("LUNAR_API_KEY")
 API_DEXTOOLS = "https://api.dexscreener.com/latest/dex/pairs/bsc"
-INTERVALO_MINUTOS = 30
+INTERVALO_MINUTOS = 10
 LUCRO_ALVO_1 = 100
 LUCRO_ALVO_2 = 200
 
