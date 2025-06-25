@@ -1,77 +1,54 @@
 import requests
 import os
-import time
-
 from dotenv import load_dotenv
+from main import enviar_mensagem
+
 load_dotenv()
 
 LUNAR_API_KEY = os.getenv("LUNAR_API_KEY")
 GOPLUS_API_KEY = os.getenv("GOPLUS_API_KEY")
-SYMBOL = "W"  # símbolo da memecoin a ser analisada
 
-def consultar_lunarcrush(simbolo):
-    print(f"📡 Consultando LunarCrush para o ativo: {simbolo}")
-    url = f"https://api.lunarcrush.com/v2?data=assets&symbol={simbolo}"
-    headers = {
-        "Authorization": f"Bearer {LUNAR_API_KEY}"
-    }
+headers_lunar = {
+    "Authorization": f"Bearer {LUNAR_API_KEY}"
+}
+headers_goplus = {
+    "accept": "application/json",
+    "Content-Type": "application/json",
+    "API-Key": GOPLUS_API_KEY
+}
 
+def testar_lunar():
+    url = "https://api.lunarcrush.com/v2?data=assets&symbol=BTC"
     try:
-        response = requests.get(url, headers=headers, timeout=10)
-        if response.status_code == 200:
-            data = response.json()
-            print("✅ LunarCrush retornou dados:")
-            print(data)
-            return data
+        r = requests.get(url, headers=headers_lunar, timeout=10)
+        if r.status_code == 200:
+            print("✅ LunarCrush conectado com sucesso!")
+            enviar_mensagem("✅ <b>LunarCrush</b> conectado com sucesso!")
         else:
-            print(f"⚠️ Erro ao acessar LunarCrush. Status code: {response.status_code}")
-            print("Resposta:", response.text)
+            print(f"❌ LunarCrush falhou ({r.status_code}): {r.text}")
+            enviar_mensagem(f"❌ <b>Erro LunarCrush:</b> {r.status_code}")
     except Exception as e:
-        print("❌ Erro de conexão com LunarCrush:", e)
-    return None
+        print("❌ Erro ao conectar com LunarCrush:", e)
+        enviar_mensagem(f"❌ <b>Erro de conexão LunarCrush:</b> {e}")
 
-def consultar_goplus(token_address, chain="eth"):
-    print(f"🔍 Consultando GoPlus Labs para o token: {token_address} na rede {chain}")
-    url = f"https://api.gopluslabs.io/api/v1/token_security/{chain}?contract_addresses={token_address}"
-    headers = {
-        "key": GOPLUS_API_KEY
-    }
-
+def testar_goplus():
+    url = "https://api.gopluslabs.io/api/v1/token_security/1?contract_addresses=0xdac17f958d2ee523a2206206994597c13d831ec7"
     try:
-        response = requests.get(url, headers=headers, timeout=10)
-        if response.status_code == 200:
-            data = response.json()
-            print("✅ GoPlus Labs retornou dados:")
-            print(data)
-            return data
+        r = requests.get(url, headers=headers_goplus, timeout=10)
+        if r.status_code == 200:
+            print("✅ GoPlus Labs conectado com sucesso!")
+            enviar_mensagem("✅ <b>GoPlus Labs</b> conectado com sucesso!")
         else:
-            print(f"⚠️ Erro ao acessar GoPlus Labs. Status code: {response.status_code}")
-            print("Resposta:", response.text)
+            print(f"❌ GoPlus Labs falhou ({r.status_code}): {r.text}")
+            enviar_mensagem(f"❌ <b>Erro GoPlus Labs:</b> {r.status_code}")
     except Exception as e:
-        print("❌ Erro de conexão com GoPlus Labs:", e)
-    return None
+        print("❌ Erro ao conectar com GoPlus Labs:", e)
+        enviar_mensagem(f"❌ <b>Erro de conexão GoPlus:</b> {e}")
 
-# === INICIAR MEMEBOT ===
 def iniciar_memebot():
-    print("🚀 Memebot ativo. Iniciando verificações...")
-    while True:
-        print("\n=== NOVO CICLO MEMEBOT ===")
-
-        # 1. LunarCrush
-        dados_lunar = consultar_lunarcrush(SYMBOL)
-        if dados_lunar:
-            print("📈 LunarCrush OK para:", SYMBOL)
-        else:
-            print("⚠️ Dados inválidos de LunarCrush.")
-
-        # 2. GoPlus Labs — endereço precisa ser conhecido (exemplo para WORMHOLE)
-        endereco_token = "0x08c32b0726cfd34f2d92b8c1d407f0622e0a77f2"
-        dados_goplus = consultar_goplus(endereco_token)
-        if dados_goplus:
-            print("🛡️ GoPlus Labs OK para o token.")
-        else:
-            print("⚠️ Dados inválidos do GoPlus Labs.")
-
-        # 3. Espera entre os ciclos (pode ajustar o tempo)
-        print("🕒 Aguardando 1 hora para nova verificação...\n")
-        time.sleep(3600)
+    print("🚀 Iniciando conexões com LunarCrush e GoPlus Labs...")
+    enviar_mensagem("🚀 <b>Iniciando conexões</b> com LunarCrush e GoPlus Labs...")
+    testar_lunar()
+    testar_goplus()
+    print("✅ Memebot finalizou testes de conexão.")
+    enviar_mensagem("✅ <b>Memebot</b> terminou os testes de conexão.")
