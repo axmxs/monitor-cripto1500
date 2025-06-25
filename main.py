@@ -44,8 +44,7 @@ def verificar_goplus(token_address):
     try:
         url = f"https://api.gopluslabs.io/api/v1/token_security/56?contract_addresses={token_address}"
         r = requests.get(url)
-        data = r.json()
-        return data
+        return r.json()
     except Exception as e:
         print("Erro GoPlus Labs:", e)
         return {}
@@ -83,19 +82,13 @@ def buscar_tokens_novos():
 
 def analisar_token(token):
     try:
-        if token['chainId'] != 'bsc':
-            return False
-        if not token.get("baseToken") or not token.get("quoteToken"):
-            return False
-        if float(token['liquidity']['usd']) < 50000:
-            return False
-        if float(token['fdv']) > 300000:
-            return False
-        if float(token['priceUsd']) <= 0:
-            return False
+        if token['chainId'] != 'bsc': return False
+        if not token.get("baseToken") or not token.get("quoteToken"): return False
+        if float(token['liquidity']['usd']) < 50000: return False
+        if float(token['fdv']) > 300000: return False
+        if float(token['priceUsd']) <= 0: return False
         minutos = (datetime.utcnow() - datetime.strptime(token['pairCreatedAt'], '%Y-%m-%dT%H:%M:%S.%fZ')).total_seconds() / 60
-        if minutos > 180:
-            return False
+        if minutos > 180: return False
         return True
     except:
         return False
@@ -141,8 +134,7 @@ def iniciar_memebot():
     while True:
         tokens = buscar_tokens_novos()
         for token in tokens:
-            if not analisar_token(token):
-                continue
+            if not analisar_token(token): continue
 
             contrato = token['pairAddress']
             nome = token['baseToken']['symbol']
@@ -190,7 +182,60 @@ def iniciar_memebot():
 
         time.sleep(INTERVALO_MINUTOS)
 
+# === SUA CARTEIRA PESSOAL ===
+ativos = {
+    'bittensor': {'nome': 'TAO', 'compra': 416.80, 'quantidade': 0.197},
+    'wormhole': {'nome': 'W', 'compra': 281.97, 'quantidade': 785},
+    'arbitrum': {'nome': 'ARB', 'compra': 63.70, 'quantidade': 271},
+    'dogwifhat': {'nome': 'WIF', 'compra': 108.00, 'quantidade': 400},
+}
+
+def precos_reais():
+    try:
+        ids = ','.join(ativos.keys())
+        url = f"https://api.coingecko.com/api/v3/simple/price?ids={ids}&vs_currencies=brl"
+        r = requests.get(url)
+        return r.json()
+    except Exception as e:
+        print("Erro ao consultar CoinGecko:", e)
+        return {}
+
+def monitorar():
+    print("📡 Monitorando carteira pessoal...")
+    while True:
+        try:
+            dados = precos_reais()
+            for ativo_id, info in ativos.items():
+                nome = info['nome']
+                compra = info['compra']
+                qtd = info['quantidade']
+                preco_atual = dados.get(ativo_id, {}).get('brl')
+                if not preco_atual:
+                    continue
+
+                valor_atual = preco_atual * qtd
+                valor_compra = compra
+                variacao = ((valor_atual - valor_compra) / valor_compra) * 100
+
+                if variacao >= 100:
+                    msg = f"💰 <b>+{variacao:.2f}%</b> em {nome}!\n⏳ Talvez hora de vender.\n💵 Lucro dobrado. Valor: R${valor_atual:.2f}"
+                    enviar_mensagem(f"🚨 <b>alertcripto1500</b>\n\n{msg}")
+
+                elif variacao >= 50:
+                    msg = f"📈 <b>+{variacao:.2f}%</b> em {nome}\n🚀 Lucro expressivo. Valor: R${valor_atual:.2f}"
+                    enviar_mensagem(f"🚨 <b>alertcripto1500</b>\n\n{msg}")
+
+                elif variacao <= -30:
+                    msg = f"🔻 <b>{variacao:.2f}%</b> em {nome}\n⚠️ Atenção: prejuízo relevante.\nValor atual: R${valor_atual:.2f}"
+                    enviar_mensagem(f"🚨 <b>alertcripto1500</b>\n\n{msg}")
+
+        except Exception as e:
+            print("Erro no monitoramento da carteira:", e)
+
+        time.sleep(1800)
+
 # === EXECUÇÃO FINAL ===
 if __name__ == '__main__':
     Thread(target=manter_online).start()
     Thread(target=iniciar_memebot).start()
+    Thread(target=monitorar).start()
