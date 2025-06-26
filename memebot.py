@@ -17,6 +17,11 @@ INTERVALO_MINUTOS = 10
 LUCRO_ALVO_1 = 100
 LUCRO_ALVO_2 = 200
 
+print(f"TOKEN carregado? {'Sim' if TOKEN else 'Não'}")
+print(f"CHAT_ID carregado? {'Sim' if CHAT_ID else 'Não'}")
+print(f"LUNAR_API_KEY carregado? {'Sim' if LUNAR_API_KEY else 'Não'}")
+
+
 headers_lunar = {
     "Authorization": f"Bearer {LUNAR_API_KEY}"
 }
