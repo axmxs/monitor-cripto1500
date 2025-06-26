@@ -102,28 +102,29 @@ def acompanhar_tokens():
             tokens = r.json().get('pairs', [])
             for token in tokens:
                 contrato = token['pairAddress']
-                if contrato in tokens_monitorados:
-                    preco_atual = float(token['priceUsd'])
-                    preco_inicial = tokens_monitorados[contrato]['preco_inicial']
-                    variacao = ((preco_atual - preco_inicial) / preco_inicial) * 100
-                    nome = token['baseToken']['symbol']
+                if contrato in tokens_monitorados or contrato in blacklist_tokens:
+                    continue
+                preco_atual = float(token['priceUsd'])
+                preco_inicial = tokens_monitorados.get(contrato, {}).get('preco_inicial', preco_atual)
+                variacao = ((preco_atual - preco_inicial) / preco_inicial) * 100
+                nome = token['baseToken']['symbol']
 
-                    if variacao >= LUCRO_ALVO_2 and not tokens_monitorados[contrato].get("alertou2"):
-                        msg = f"\U0001F4A5 <b>LUCRO +{variacao:.2f}%</b>\n\nToken: {nome}\nVenda sugerida. Preço: ${preco_atual:.6f}"
-                        enviar_mensagem(msg)
-                        tokens_monitorados[contrato]["alertou2"] = True
+                if variacao >= LUCRO_ALVO_2:
+                    msg = f"\U0001F4A5 <b>LUCRO +{variacao:.2f}%</b>\n\nToken: {nome}\nVenda sugerida. Preço: ${preco_atual:.6f}"
+                    enviar_mensagem(msg)
+                    tokens_monitorados[contrato]["alertou2"] = True
 
-                    elif variacao >= LUCRO_ALVO_1 and not tokens_monitorados[contrato].get("alertou1"):
-                        msg = f"📈 <b>+{variacao:.2f}%</b> em {nome}\nConsidere parcial. Preço: ${preco_atual:.6f}"
-                        enviar_mensagem(msg)
-                        tokens_monitorados[contrato]["alertou1"] = True
+                elif variacao >= LUCRO_ALVO_1:
+                    msg = f"📈 <b>+{variacao:.2f}%</b> em {nome}\nConsidere parcial. Preço: ${preco_atual:.6f}"
+                    enviar_mensagem(msg)
+                    tokens_monitorados[contrato]["alertou1"] = True
 
-                    elif variacao < -50:
-                        msg = f"⚠️ <b>Queda de {variacao:.2f}%</b> em {nome}\nPossível rug. Avalie saída."
-                        enviar_mensagem(msg)
+                elif variacao < -50:
+                    msg = f"⚠️ <b>Queda de {variacao:.2f}%</b> em {nome}\nPossível rug. Avalie saída."
+                    enviar_mensagem(msg)
 
-                    if datetime.utcnow() - tokens_monitorados[contrato]['ultima_verificacao'] > timedelta(hours=6):
-                        del tokens_monitorados[contrato]
+                if datetime.utcnow() - tokens_monitorados.get(contrato, {}).get('ultima_verificacao', datetime.utcnow()) > timedelta(hours=6):
+                    tokens_monitorados.pop(contrato, None)
         except Exception as e:
             print("Erro ao monitorar token:", e)
 
@@ -143,7 +144,7 @@ def iniciar_memebot():
         tokens = buscar_tokens_novos()
         for token in tokens:
             contrato = token['pairAddress']
-            if contrato in blacklist_tokens:
+            if contrato in blacklist_tokens or contrato in tokens_monitorados:
                 continue
             if not analisar_token(token):
                 blacklist_tokens.add(contrato)
