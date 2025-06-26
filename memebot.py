@@ -30,10 +30,7 @@ def verificar_goplus(token_address):
     try:
         url = f"https://api.gopluslabs.io/api/v1/token_security/56?contract_addresses={token_address}"
         r = requests.get(url)
-        data = r.json()
-        if r.status_code != 200 or 'result' not in data:
-            return {}
-        return data['result'].get(token_address, {})
+        return r.json()
     except Exception as e:
         print("Erro GoPlus Labs:", e)
         return {}
@@ -50,7 +47,10 @@ def verificar_social_lunar(symbol):
             return {
                 "social_volume": token_data.get("social_volume", 0),
                 "galaxy_score": token_data.get("galaxy_score", 0),
-                "alt_rank": token_data.get("alt_rank", 999)
+                "alt_rank": token_data.get("alt_rank", 999),
+                "twitter_followers": token_data.get("twitter_followers", 0),
+                "twitter_mentions": token_data.get("twitter_mentions", 0),
+                "reddit_comments": token_data.get("reddit_comments", 0),
             }
         return None
     except Exception as e:
@@ -100,7 +100,7 @@ def acompanhar_tokens():
                     nome = token['baseToken']['symbol']
 
                     if variacao >= LUCRO_ALVO_2 and not tokens_monitorados[contrato].get("alertou2"):
-                        msg = f"\U0001F4A5 <b>LUCRO +{variacao:.2f}%</b>\n\nToken: {nome}\nVenda sugerida. Preço: ${preco_atual:.6f}"
+                        msg = f"💥 <b>LUCRO +{variacao:.2f}%</b>\nToken: {nome}\nVenda sugerida. Preço: ${preco_atual:.6f}"
                         enviar_mensagem(msg)
                         tokens_monitorados[contrato]["alertou2"] = True
 
@@ -123,7 +123,9 @@ def acompanhar_tokens():
 def intervalo_dinamico():
     agora = datetime.now()
     hora_decimal = agora.hour + agora.minute / 60
-    return 2 if 6.5 <= hora_decimal <= 21 else 5
+    if 6.5 <= hora_decimal <= 21:
+        return 2
+    return 5
 
 def iniciar_memebot():
     print("🚀 Memebot otimizado iniciado.")
@@ -143,21 +145,25 @@ def iniciar_memebot():
             liquidez = float(token['liquidity']['usd'])
 
             goplus = verificar_goplus(contrato)
+            info_seg = goplus.get('result', {}).get(contrato, {})
+            if info_seg.get('is_open_source') == '0' or info_seg.get('is_honeypot') == '1':
+                continue
 
-            # ⚠️ Segurança extra: evita honeypots, taxas abusivas e contratos perigosos
-            if goplus.get("is_open_source") == "0":
-                continue
-            if goplus.get("is_honeypot") == "1":
-                continue
-            if float(goplus.get("buy_tax", "0")) > 10 or float(goplus.get("sell_tax", "0")) > 10:
-                continue
-            if goplus.get("can_take_back_ownership") == "1" or goplus.get("is_proxy") == "1":
-                continue
+            # Taxas abusivas de compra/venda (opcional)
+            try:
+                sell_tax = float(info_seg.get('sell_tax', 0))
+                buy_tax = float(info_seg.get('buy_tax', 0))
+                if sell_tax > 15 or buy_tax > 15:
+                    continue
+            except:
+                pass
 
             social = verificar_social_lunar(nome)
             if not social:
                 continue
             if social['social_volume'] < 500 or social['alt_rank'] > 25:
+                continue
+            if social['twitter_followers'] < 1000 and social['twitter_mentions'] < 20:
                 continue
 
             if contrato not in tokens_monitorados:
@@ -173,6 +179,8 @@ def iniciar_memebot():
                     f"Liquidez: ${liquidez:,.0f}\n"
                     f"Preço Inicial: ${preco:.6f}\n"
                     f"🔥 Social Volume: {social['social_volume']}\n"
+                    f"🐦 Seguidores Twitter: {social['twitter_followers']}\n"
+                    f"💬 Menções Twitter: {social['twitter_mentions']}\n"
                     f"🧠 Galaxy Score: {social['galaxy_score']}\n"
                     f"📈 Alt Rank: {social['alt_rank']}\n"
                     f"🔗 <a href='https://dexscreener.com/bsc/{contrato}'>Ver Gráfico</a>"
