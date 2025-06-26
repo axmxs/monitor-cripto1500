@@ -30,7 +30,10 @@ def verificar_goplus(token_address):
     try:
         url = f"https://api.gopluslabs.io/api/v1/token_security/56?contract_addresses={token_address}"
         r = requests.get(url)
-        return r.json()
+        data = r.json()
+        if r.status_code != 200 or 'result' not in data:
+            return {}
+        return data['result'].get(token_address, {})
     except Exception as e:
         print("Erro GoPlus Labs:", e)
         return {}
@@ -118,12 +121,9 @@ def acompanhar_tokens():
         time.sleep(60)
 
 def intervalo_dinamico():
-    """Retorna intervalo em minutos conforme horário atual (horário local BR)."""
     agora = datetime.now()
     hora_decimal = agora.hour + agora.minute / 60
-    if 6.5 <= hora_decimal <= 21:
-        return 2
-    return 5
+    return 2 if 6.5 <= hora_decimal <= 21 else 5
 
 def iniciar_memebot():
     print("🚀 Memebot otimizado iniciado.")
@@ -143,7 +143,15 @@ def iniciar_memebot():
             liquidez = float(token['liquidity']['usd'])
 
             goplus = verificar_goplus(contrato)
-            if goplus.get('result', {}).get(contrato, {}).get('is_open_source') == '0':
+
+            # ⚠️ Segurança extra: evita honeypots, taxas abusivas e contratos perigosos
+            if goplus.get("is_open_source") == "0":
+                continue
+            if goplus.get("is_honeypot") == "1":
+                continue
+            if float(goplus.get("buy_tax", "0")) > 10 or float(goplus.get("sell_tax", "0")) > 10:
+                continue
+            if goplus.get("can_take_back_ownership") == "1" or goplus.get("is_proxy") == "1":
                 continue
 
             social = verificar_social_lunar(nome)
@@ -173,6 +181,5 @@ def iniciar_memebot():
 
         time.sleep(intervalo * 60)
 
-# Execução direta
 if __name__ == '__main__':
     iniciar_memebot()
