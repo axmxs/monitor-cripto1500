@@ -1,5 +1,3 @@
-# === memebot.py atualizado ===
-
 from threading import Thread
 import time
 import requests
@@ -79,28 +77,12 @@ def analisar_token(token):
             return False
         if float(token['priceUsd']) <= 0:
             return False
-        minutos = (datetime.utcnow() - datetime.strptime(token['pairCreatedAt'], '%Y-%m-%dT%H:%M:%S.%fZ')).total_seconds() / 60
+        minutos = (datetime.utcnow() - datetime.strptime(token['pairCreatedAt'], '%Y-%m-%dT%H:%M:%S.000Z')).total_seconds() / 60
         if minutos > 30 or minutos < 5:
             return False
         return True
     except:
         return False
-
-
-        # --- TESTE FALSO DE TOKEN PARA VER SE ENVIA ALERTA ---
-        token_fake = {
-            'pairAddress': '0x123fake456',
-            'chainId': 'bsc',
-            'pairCreatedAt': (datetime.utcnow() - timedelta(minutes=10)).strftime('%Y-%m-%dT%H:%M:%S.000Z'),
-            'baseToken': {'symbol': 'FAKETEST'},
-            'quoteToken': {'symbol': 'USDT'},
-            'priceUsd': '0.0005',
-            'fdv': '250000',
-            'liquidity': {'usd': '60000'}
-        }
-        tokens = [token_fake]  # sobrescreve tokens reais apenas neste ciclo
-
-
 
 def acompanhar_tokens():
     while True:
@@ -141,7 +123,19 @@ def iniciar_memebot():
     Thread(target=acompanhar_tokens, daemon=True).start()
 
     while True:
-        tokens = buscar_tokens_novos()
+        # === TOKEN FAKE DE TESTE ===
+        token_fake = {
+            'pairAddress': '0x123fake456',
+            'chainId': 'bsc',
+            'pairCreatedAt': (datetime.utcnow() - timedelta(minutes=10)).strftime('%Y-%m-%dT%H:%M:%S.000Z'),
+            'baseToken': {'symbol': 'FAKETEST'},
+            'quoteToken': {'symbol': 'USDT'},
+            'priceUsd': '0.0005',
+            'fdv': '250000',
+            'liquidity': {'usd': '60000'}
+        }
+        tokens = [token_fake]  # apenas o token fake neste teste
+
         for token in tokens:
             if not analisar_token(token):
                 continue
@@ -152,17 +146,12 @@ def iniciar_memebot():
             mc = float(token.get('fdv', 0))
             liquidez = float(token['liquidity']['usd'])
 
-            # segurança: rejeita tokens não open source
-            goplus = verificar_goplus(contrato)
-            if goplus.get('result', {}).get(contrato, {}).get('is_open_source') == '0':
-                continue
-
-            # verifica engajamento social
-            social = verificar_social_lunar(nome)
-            if not social:
-                continue
-            if social['social_volume'] < 500 or social['alt_rank'] > 25:
-                continue
+            # Força valores sociais simulados para teste
+            social = {
+                'social_volume': 1200,
+                'galaxy_score': 78,
+                'alt_rank': 8
+            }
 
             if contrato not in tokens_monitorados:
                 tokens_monitorados[contrato] = {
@@ -171,7 +160,7 @@ def iniciar_memebot():
                 }
 
                 msg = (
-                    f"🚨 <b>NOVO ALERTA DE MEME COIN</b>\n\n"
+                    f"🚨 <b>NOVO ALERTA DE MEME COIN (TESTE)</b>\n\n"
                     f"Token: <b>{nome}</b>\n"
                     f"Market Cap: ${mc:,.0f}\n"
                     f"Liquidez: ${liquidez:,.0f}\n"
