@@ -1,3 +1,4 @@
+import json
 from threading import Thread
 import time
 import requests
@@ -14,13 +15,29 @@ BSCSCAN_API_KEY = os.getenv("BSCSCAN_API_KEY")
 API_DEXTOOLS = "https://api.dexscreener.com/latest/dex/pairs/bsc"
 LUCRO_ALVO_1 = 100
 LUCRO_ALVO_2 = 200
+BLACKLIST_FILE = "blacklist.json"
 
 headers_lunar = {
     "Authorization": f"Bearer {LUNAR_API_KEY}"
 }
 
 tokens_monitorados = {}
-blacklist_tokens = set()
+
+# === BLACKLIST persistente ===
+try:
+    with open(BLACKLIST_FILE, "r") as f:
+        blacklist_tokens = set(json.load(f))
+except:
+    blacklist_tokens = set()
+
+def salvar_blacklist():
+    try:
+        with open(BLACKLIST_FILE, "w") as f:
+            json.dump(list(blacklist_tokens), f)
+    except Exception as e:
+        print("Erro ao salvar blacklist:", e)
+
+# === Funções de análise ===
 
 def enviar_mensagem(texto):
     url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
@@ -136,7 +153,7 @@ def intervalo_dinamico():
     return 2 if 6.5 <= hora_decimal <= 21 else 5
 
 def iniciar_memebot():
-    print("🚀 Memebot otimizado iniciado.")
+    print("🚀 Memebot iniciado com persistência de blacklist.")
     Thread(target=acompanhar_tokens, daemon=True).start()
 
     while True:
@@ -148,6 +165,7 @@ def iniciar_memebot():
                 continue
             if not analisar_token(token):
                 blacklist_tokens.add(contrato)
+                salvar_blacklist()
                 continue
 
             nome = token['baseToken']['symbol']
@@ -158,11 +176,13 @@ def iniciar_memebot():
             goplus = verificar_goplus(contrato)
             if goplus.get('result', {}).get(contrato, {}).get('is_open_source') == '0':
                 blacklist_tokens.add(contrato)
+                salvar_blacklist()
                 continue
 
             social = verificar_social_lunar(nome)
             if not social or social['social_volume'] < 500 or social['alt_rank'] > 25:
                 blacklist_tokens.add(contrato)
+                salvar_blacklist()
                 continue
 
             tokens_monitorados[contrato] = {
