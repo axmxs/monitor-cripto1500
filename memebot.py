@@ -146,10 +146,10 @@ def iniciar_memebot():
 
             goplus = verificar_goplus(contrato)
             info_seg = goplus.get('result', {}).get(contrato, {})
+
+            # Etapa 1 - Honeypot e taxas
             if info_seg.get('is_open_source') == '0' or info_seg.get('is_honeypot') == '1':
                 continue
-
-            # Taxas abusivas de compra/venda (opcional)
             try:
                 sell_tax = float(info_seg.get('sell_tax', 0))
                 buy_tax = float(info_seg.get('buy_tax', 0))
@@ -158,6 +158,13 @@ def iniciar_memebot():
             except:
                 pass
 
+            # Etapa 3 - Verificar ownership renunciado
+            if info_seg.get('can_take_back_ownership') != '0':
+                continue
+            if info_seg.get('owner_address', '').lower() != '0x0000000000000000000000000000000000000000':
+                continue
+
+            # Etapa 2 - Engajamento social
             social = verificar_social_lunar(nome)
             if not social:
                 continue
@@ -183,6 +190,7 @@ def iniciar_memebot():
                     f"💬 Menções Twitter: {social['twitter_mentions']}\n"
                     f"🧠 Galaxy Score: {social['galaxy_score']}\n"
                     f"📈 Alt Rank: {social['alt_rank']}\n"
+                    f"🔐 Owner Renunciado: ✅\n"
                     f"🔗 <a href='https://dexscreener.com/bsc/{contrato}'>Ver Gráfico</a>"
                 )
                 enviar_mensagem(msg)
