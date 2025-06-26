@@ -86,6 +86,22 @@ def analisar_token(token):
     except:
         return False
 
+
+        # --- TESTE FALSO DE TOKEN PARA VER SE ENVIA ALERTA ---
+        token_fake = {
+            'pairAddress': '0x123fake456',
+            'chainId': 'bsc',
+            'pairCreatedAt': (datetime.utcnow() - timedelta(minutes=10)).strftime('%Y-%m-%dT%H:%M:%S.000Z'),
+            'baseToken': {'symbol': 'FAKETEST'},
+            'quoteToken': {'symbol': 'USDT'},
+            'priceUsd': '0.0005',
+            'fdv': '250000',
+            'liquidity': {'usd': '60000'}
+        }
+        tokens = [token_fake]  # sobrescreve tokens reais apenas neste ciclo
+
+
+
 def acompanhar_tokens():
     while True:
         try:
