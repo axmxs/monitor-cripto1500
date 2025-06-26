@@ -120,6 +120,6 @@ def monitorar():
         time.sleep(INTERVALO_MINUTOS * 60)
 
 # === START ===
-if __name__ == '__main__':
-    Thread(target=manter_online).start()
-    monitorar()
+Thread(target=manter_online).start()
+Thread(target=monitorar).start()
+
