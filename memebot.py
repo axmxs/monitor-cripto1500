@@ -1,26 +1,21 @@
-# === memebot.py ===
+# === memebot.py atualizado ===
 
 from threading import Thread
 import time
 import requests
 import os
 from datetime import datetime, timedelta
-# == from dotenv import load_dotenv
+from dotenv import load_dotenv
 
-# == load_dotenv()
+load_dotenv()
 
 TOKEN = os.getenv("TOKEN")
 CHAT_ID = os.getenv("CHAT_ID")
 LUNAR_API_KEY = os.getenv("LUNAR_API_KEY")
 API_DEXTOOLS = "https://api.dexscreener.com/latest/dex/pairs/bsc"
-INTERVALO_MINUTOS = 10
+INTERVALO_MINUTOS = 5
 LUCRO_ALVO_1 = 100
 LUCRO_ALVO_2 = 200
-
-print(f"TOKEN carregado? {'Sim' if TOKEN else 'Não'}")
-print(f"CHAT_ID carregado? {'Sim' if CHAT_ID else 'Não'}")
-print(f"LUNAR_API_KEY carregado? {'Sim' if LUNAR_API_KEY else 'Não'}")
-
 
 headers_lunar = {
     "Authorization": f"Bearer {LUNAR_API_KEY}"
@@ -78,14 +73,14 @@ def analisar_token(token):
             return False
         if not token.get("baseToken") or not token.get("quoteToken"):
             return False
-        if float(token['liquidity']['usd']) < 50000:
+        if float(token['liquidity']['usd']) < 10000:
             return False
         if float(token['fdv']) > 300000:
             return False
         if float(token['priceUsd']) <= 0:
             return False
         minutos = (datetime.utcnow() - datetime.strptime(token['pairCreatedAt'], '%Y-%m-%dT%H:%M:%S.%fZ')).total_seconds() / 60
-        if minutos > 180:
+        if minutos > 30 or minutos < 5:
             return False
         return True
     except:
@@ -126,7 +121,7 @@ def acompanhar_tokens():
         time.sleep(60)
 
 def iniciar_memebot():
-    print("🚀 Memebot iniciado.")
+    print("🚀 Memebot otimizado iniciado.")
     Thread(target=acompanhar_tokens, daemon=True).start()
 
     while True:
@@ -141,31 +136,23 @@ def iniciar_memebot():
             mc = float(token.get('fdv', 0))
             liquidez = float(token['liquidity']['usd'])
 
+            # segurança: rejeita tokens não open source
+            goplus = verificar_goplus(contrato)
+            if goplus.get('result', {}).get(contrato, {}).get('is_open_source') == '0':
+                continue
+
+            # verifica engajamento social
+            social = verificar_social_lunar(nome)
+            if not social:
+                continue
+            if social['social_volume'] < 500 or social['alt_rank'] > 25:
+                continue
+
             if contrato not in tokens_monitorados:
                 tokens_monitorados[contrato] = {
                     "preco_inicial": preco,
                     "ultima_verificacao": datetime.utcnow(),
                 }
-
-                goplus = verificar_goplus(contrato)
-                score = "✅ Token aprovado"
-                if goplus.get('result', {}).get(contrato, {}).get('is_open_source') == '0':
-                    score = "⚠️ Código fechado"
-
-                social = verificar_social_lunar(nome)
-                social_msg = ""
-                if social:
-                    if social['social_volume'] >= 500 or social['galaxy_score'] >= 60 or social['alt_rank'] <= 25:
-                        social_msg = (
-                            f"\n\n🔥 Social Volume: {social['social_volume']}\n"
-                            f"🧠 Galaxy Score: {social['galaxy_score']}\n"
-                            f"📈 Alt Rank: {social['alt_rank']}\n"
-                            f"🚀 Muita atenção — tendência viral!"
-                        )
-                    else:
-                        social_msg = f"\n\n📉 Baixo engajamento social no momento."
-                else:
-                    social_msg = f"\n\n❓ Dados sociais indisponíveis."
 
                 msg = (
                     f"🚨 <b>NOVO ALERTA DE MEME COIN</b>\n\n"
@@ -173,14 +160,15 @@ def iniciar_memebot():
                     f"Market Cap: ${mc:,.0f}\n"
                     f"Liquidez: ${liquidez:,.0f}\n"
                     f"Preço Inicial: ${preco:.6f}\n"
-                    f"{score}"
-                    f"{social_msg}\n"
+                    f"🔥 Social Volume: {social['social_volume']}\n"
+                    f"🧠 Galaxy Score: {social['galaxy_score']}\n"
+                    f"📈 Alt Rank: {social['alt_rank']}\n"
                     f"🔗 <a href='https://dexscreener.com/bsc/{contrato}'>Ver Gráfico</a>"
                 )
                 enviar_mensagem(msg)
 
         time.sleep(INTERVALO_MINUTOS * 60)
 
-# Se quiser executar diretamente
+# Execução direta
 if __name__ == '__main__':
     iniciar_memebot()
