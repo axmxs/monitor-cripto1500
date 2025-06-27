@@ -86,10 +86,12 @@ def monitorar():
                 continue
 
             ativos_validos += 1
+            preco_medio_unitario = d['compra'] / d['quantidade']
+            variacao = (preco - preco_medio_unitario) / preco_medio_unitario * 100
+
             valor = preco * d['quantidade']
             total_atual += valor
             total_investido += d['compra']
-            variacao = (valor - d['compra']) / d['compra'] * 100
 
             linha = f"\n💰 {d['nome']}: R${valor:.2f} ({variacao:+.2f}%)"
             if variacao >= gatilhos['alta_forte']:
