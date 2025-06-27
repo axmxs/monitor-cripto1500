@@ -90,20 +90,24 @@ def monitorar():
             valor = preco * d['quantidade']
             total_atual += valor
             total_investido += d['compra']
-            variacao = (valor - d['compra']) / d['compra'] * 100
 
-            linha = f"\n💰 {d['nome']}: R${valor:.2f} ({variacao:+.2f}%)"
-            if variacao >= gatilhos['alta_forte']:
+            # Cálculo baseado em preço unitário
+            preco_medio_unit = d['compra'] / d['quantidade']
+            variacao_unit = (preco - preco_medio_unit) / preco_medio_unit * 100
+
+            linha = f"\n💰 {d['nome']}: R${valor:.2f} ({variacao_unit:+.2f}%)"
+
+            if variacao_unit >= gatilhos['alta_forte']:
                 linha += " 🚨 ALTA FORTE — considerar vender"
-            elif variacao >= gatilhos['alta_media']:
+            elif variacao_unit >= gatilhos['alta_media']:
                 linha += " 📈 Alta moderada"
-            elif variacao <= gatilhos['queda_forte']:
+            elif variacao_unit <= gatilhos['queda_forte']:
                 linha += " 📉 Queda forte — oportunidade?"
-            elif variacao <= gatilhos['queda_media']:
+            elif variacao_unit <= gatilhos['queda_media']:
                 linha += " ⚠️ Queda moderada"
+
             msg.append(linha)
 
-        # Se menos da metade dos ativos retornarem preço, não envia o alerta
         if ativos_validos < len(ativos) // 2:
             print("⏸️ Dados insuficientes para envio (ativos com preço válido insuficiente).")
             time.sleep(INTERVALO_MINUTOS * 60)
@@ -122,4 +126,3 @@ def monitorar():
 # === START ===
 Thread(target=manter_online).start()
 Thread(target=monitorar).start()
-
