@@ -23,13 +23,12 @@ gatilhos = {
 
 # === CARTEIRA ===
 ativos = {
-    'bittensor': {'nome': 'TAO', 'compra': 416.80, 'quantidade': 0.1975781},
-    'wormhole': {'nome': 'W', 'compra': 281.97, 'quantidade': 785.49619314},
+    'bittensor': {'nome': 'TAO', 'compra': 420.00, 'quantidade': 0.19757811},
+    'wormhole': {'nome': 'W', 'compra': 281.80, 'quantidade': 785.49619314},
     'arbitrum': {'nome': 'ARB', 'compra': 225.00, 'quantidade': 115.68959026},
-    'solana': {'nome': 'SOL', 'compra': 183.54, 'quantidade': 0.23164581},
-    'hyperliquid': {'nome': 'HYPE', 'compra': 110.90, 'quantidade': 0.5821798},
-    'render-token': {'nome': 'RNDR', 'compra': 106.69, 'quantidade': 6.40601079},
-    'pepe': {'nome': 'PEPE', 'compra': 38.53, 'quantidade': 716156.68549905},
+    'hyperliquid': {'nome': 'HYPE', 'compra': 116.44, 'quantidade': 0.5821798},
+    'render-token': {'nome': 'RNDR', 'compra': 113.00, 'quantidade': 6.4060108},
+    'pepe': {'nome': 'PEPE', 'compra': 40.00, 'quantidade': 716156.68549906}
 }
 
 # === FLASK PARA RENDER/UPTIME ROBOT ===
@@ -90,22 +89,17 @@ def monitorar():
             valor = preco * d['quantidade']
             total_atual += valor
             total_investido += d['compra']
+            variacao = (valor - d['compra']) / d['compra'] * 100
 
-            # Cálculo baseado em preço unitário
-            preco_medio_unit = d['compra'] / d['quantidade']
-            variacao_unit = (preco - preco_medio_unit) / preco_medio_unit * 100
-
-            linha = f"\n💰 {d['nome']}: R${valor:.2f} ({variacao_unit:+.2f}%)"
-
-            if variacao_unit >= gatilhos['alta_forte']:
+            linha = f"\n💰 {d['nome']}: R${valor:.2f} ({variacao:+.2f}%)"
+            if variacao >= gatilhos['alta_forte']:
                 linha += " 🚨 ALTA FORTE — considerar vender"
-            elif variacao_unit >= gatilhos['alta_media']:
+            elif variacao >= gatilhos['alta_media']:
                 linha += " 📈 Alta moderada"
-            elif variacao_unit <= gatilhos['queda_forte']:
+            elif variacao <= gatilhos['queda_forte']:
                 linha += " 📉 Queda forte — oportunidade?"
-            elif variacao_unit <= gatilhos['queda_media']:
+            elif variacao <= gatilhos['queda_media']:
                 linha += " ⚠️ Queda moderada"
-
             msg.append(linha)
 
         if ativos_validos < len(ativos) // 2:
