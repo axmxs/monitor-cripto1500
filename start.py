@@ -1,13 +1,8 @@
 from threading import Thread
 import time
-import main
-import memebot
 
-def iniciar_main():
-    main.iniciar()
-
-def iniciar_memebot():
-    memebot.iniciar()
+from main import iniciar_main
+from memebot import iniciar_memebot
 
 if __name__ == '__main__':
     print("🚀 Iniciando monitor de carteira e memebot...")
