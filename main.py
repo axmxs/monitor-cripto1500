@@ -54,7 +54,6 @@ def enviar_mensagem(texto):
 def precos_reais(tentativas=3, espera=2):
     ids = ','.join(ativos.keys())
     url = f'https://api.coingecko.com/api/v3/simple/price?ids={ids}&vs_currencies=brl'
-
     for i in range(tentativas):
         try:
             r = requests.get(url, timeout=5)
@@ -119,6 +118,12 @@ def monitorar():
         print("🟢 Alerta enviado. Nova verificação em breve...")
         time.sleep(INTERVALO_MINUTOS * 60)
 
-# === START ===
-Thread(target=manter_online).start()
-Thread(target=monitorar).start()
+# === FUNÇÃO DE INÍCIO PARA IMPORTAÇÃO EXTERNA ===
+def iniciar_main():
+    print("✅ Main iniciado com sucesso.")
+    Thread(target=manter_online).start()
+    Thread(target=monitorar).start()
+
+# Execução direta
+if __name__ == '__main__':
+    iniciar_main()
