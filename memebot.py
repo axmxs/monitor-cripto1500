@@ -4,7 +4,7 @@ import json
 import threading
 from datetime import datetime
 
-API_DEXTOOLS = "https://api.dexscreener.com/latest/dex/pairs/bsc"
+API_DEXTOOLS = "https://api.dexscreener.io/latest/dex/pairs/bsc"
 INTERVALO_VERIFICACAO = 180  # 3 minutos
 blacklist = set()
 
