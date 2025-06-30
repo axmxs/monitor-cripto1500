@@ -37,8 +37,6 @@ def salvar_blacklist():
     except Exception as e:
         print("Erro ao salvar blacklist:", e)
 
-# === Funções de análise ===
-
 def enviar_mensagem(texto):
     url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
     payload = {'chat_id': CHAT_ID, 'text': texto, 'parse_mode': 'HTML'}
@@ -84,6 +82,17 @@ def verificar_volume_dexscreener(token):
     except:
         return False
 
+def verificar_holders(token_address):
+    try:
+        url = f"https://api.bscscan.com/api?module=token&action=tokenholderlist&contractaddress={token_address}&page=1&offset=100&apikey={BSCSCAN_API_KEY}"
+        r = requests.get(url)
+        data = r.json()
+        if 'result' in data:
+            return len(data['result'])
+    except:
+        pass
+    return 0
+
 def buscar_tokens_novos():
     try:
         r = requests.get(API_DEXTOOLS)
@@ -108,6 +117,8 @@ def analisar_token(token):
             return False
         if not verificar_volume_dexscreener(token):
             return False
+        if verificar_holders(token['pairAddress']) < 50:
+            return False
         return True
     except:
         return False
@@ -126,12 +137,12 @@ def acompanhar_tokens():
                 variacao = ((preco_atual - preco_inicial) / preco_inicial) * 100
                 nome = token['baseToken']['symbol']
 
-                if variacao >= LUCRO_ALVO_2:
+                if variacao >= LUCRO_ALVO_2 and not tokens_monitorados.get(contrato, {}).get("alertou2"):
                     msg = f"\U0001F4A5 <b>LUCRO +{variacao:.2f}%</b>\n\nToken: {nome}\nVenda sugerida. Preço: ${preco_atual:.6f}"
                     enviar_mensagem(msg)
                     tokens_monitorados[contrato]["alertou2"] = True
 
-                elif variacao >= LUCRO_ALVO_1:
+                elif variacao >= LUCRO_ALVO_1 and not tokens_monitorados.get(contrato, {}).get("alertou1"):
                     msg = f"📈 <b>+{variacao:.2f}%</b> em {nome}\nConsidere parcial. Preço: ${preco_atual:.6f}"
                     enviar_mensagem(msg)
                     tokens_monitorados[contrato]["alertou1"] = True
@@ -140,7 +151,7 @@ def acompanhar_tokens():
                     msg = f"⚠️ <b>Queda de {variacao:.2f}%</b> em {nome}\nPossível rug. Avalie saída."
                     enviar_mensagem(msg)
 
-                if datetime.utcnow() - tokens_monitorados.get(contrato, {}).get('ultima_verificacao', datetime.utcnow()) > timedelta(hours=6):
+                if datetime.utcnow() - tokens_monitorados.get(contrato, {}).get('ultima_verificacao', datetime.utcnow()) > timedelta(hours=24):
                     tokens_monitorados.pop(contrato, None)
         except Exception as e:
             print("Erro ao monitorar token:", e)
@@ -188,6 +199,8 @@ def iniciar_memebot():
             tokens_monitorados[contrato] = {
                 "preco_inicial": preco,
                 "ultima_verificacao": datetime.utcnow(),
+                "alertou1": False,
+                "alertou2": False,
             }
 
             msg = (
