@@ -221,4 +221,10 @@ def iniciar_memebot():
         time.sleep(intervalo * 60)
 
 if __name__ == '__main__':
+    # Teste de envio de mensagem para Telegram
+    print("🔧 Testando envio de mensagem para Telegram...")
+    enviar_mensagem("✅ Teste de mensagem: seu Memebot está funcionando!")
+
+    # Agora inicia o bot normalmente
     iniciar_memebot()
+
