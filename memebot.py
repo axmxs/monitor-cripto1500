@@ -32,7 +32,7 @@ def salvar_blacklist():
         with open(BLACKLIST_FILE, "w") as f:
             json.dump(list(blacklist_tokens), f)
     except Exception as e:
-        print("Erro ao salvar blacklist:", e)
+        print("[memebot] Erro ao salvar blacklist:", e)
 
 def enviar_mensagem(texto):
     url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
@@ -40,7 +40,7 @@ def enviar_mensagem(texto):
     try:
         requests.post(url, data=payload)
     except Exception as e:
-        print("Erro ao enviar:", e)
+        print("[memebot] Erro ao enviar mensagem:", e)
 
 def verificar_goplus(token_address):
     try:
@@ -48,7 +48,7 @@ def verificar_goplus(token_address):
         r = requests.get(url)
         return r.json()
     except Exception as e:
-        print("Erro GoPlus Labs:", e)
+        print("[memebot] Erro GoPlus Labs:", e)
         return {}
 
 def verificar_social_lunar(symbol):
@@ -67,7 +67,7 @@ def verificar_social_lunar(symbol):
             }
         return None
     except Exception as e:
-        print("Erro ao consultar LunarCrush:", e)
+        print("[memebot] Erro ao consultar LunarCrush:", e)
         return None
 
 def verificar_volume_dexscreener(token):
@@ -94,7 +94,8 @@ def buscar_tokens_novos():
     try:
         r = requests.get(API_DEXTOOLS)
         return r.json().get("pairs", [])
-    except:
+    except Exception as e:
+        print("[memebot] Erro ao buscar tokens novos:", e)
         return []
 
 def analisar_token(token):
@@ -117,13 +118,15 @@ def analisar_token(token):
         if verificar_holders(token['pairAddress']) < 50:
             return False
         return True
-    except:
+    except Exception as e:
+        print("[memebot] Erro ao analisar token:", e)
         return False
 
 def acompanhar_tokens():
+    print("[memebot] Thread de monitoramento iniciada.")
     while True:
+        print("[memebot] Buscando tokens para monitorar...")
         try:
-            print("[memebot] Buscando tokens para monitorar...")
             r = requests.get(API_DEXTOOLS)
             tokens = r.json().get('pairs', [])
             print(f"[memebot] {len(tokens)} tokens recebidos.")
@@ -138,29 +141,24 @@ def acompanhar_tokens():
                 variacao = ((preco_atual - preco_inicial) / preco_inicial) * 100
                 nome = token['baseToken']['symbol']
 
-                print(f"[memebot] Monitorando token {nome} ({contrato[:6]}...), variação: {variacao:.2f}%")
-
                 if variacao >= LUCRO_ALVO_2 and not tokens_monitorados.get(contrato, {}).get("alertou2"):
                     msg = f"\U0001F4A5 <b>LUCRO +{variacao:.2f}%</b>\n\nToken: {nome}\nVenda sugerida. Preço: ${preco_atual:.6f}"
                     enviar_mensagem(msg)
                     tokens_monitorados[contrato]["alertou2"] = True
-                    print(f"[memebot] Alerta LUCRO +{variacao:.2f}% enviado para {nome}")
 
                 elif variacao >= LUCRO_ALVO_1 and not tokens_monitorados.get(contrato, {}).get("alertou1"):
                     msg = f"📈 <b>+{variacao:.2f}%</b> em {nome}\nConsidere parcial. Preço: ${preco_atual:.6f}"
                     enviar_mensagem(msg)
                     tokens_monitorados[contrato]["alertou1"] = True
-                    print(f"[memebot] Alerta LUCRO +{variacao:.2f}% enviado para {nome}")
 
                 elif variacao < -50:
                     msg = f"⚠️ <b>Queda de {variacao:.2f}%</b> em {nome}\nPossível rug. Avalie saída."
                     enviar_mensagem(msg)
-                    print(f"[memebot] Alerta queda forte enviado para {nome}")
 
-                ultima_verificacao = tokens_monitorados.get(contrato, {}).get('ultima_verificacao', datetime.utcnow())
-                if datetime.utcnow() - ultima_verificacao > timedelta(hours=24):
+                # Atualiza ultima_verificacao para limpar tokens monitorados depois de 24h
+                ultima = tokens_monitorados.get(contrato, {}).get('ultima_verificacao', datetime.utcnow())
+                if (datetime.utcnow() - ultima) > timedelta(hours=24):
                     tokens_monitorados.pop(contrato, None)
-                    print(f"[memebot] Token {nome} removido do monitoramento por inatividade (>24h)")
 
         except Exception as e:
             print("[memebot] Erro ao monitorar token:", e)
@@ -170,27 +168,28 @@ def acompanhar_tokens():
 def intervalo_dinamico():
     agora = datetime.now()
     hora_decimal = agora.hour + agora.minute / 60
+    # 6:30 até 21:00 horas intervalo menor
     return 2 if 6.5 <= hora_decimal <= 21 else 5
 
 def iniciar_memebot():
-    print("🚀 Memebot iniciado com persistência de blacklist.")
-    enviar_mensagem("✅ Memebot iniciado com sucesso.")  # Mensagem inicial para confirmar start
+    print("✅ Memebot iniciado com persistência de blacklist.")
     Thread(target=acompanhar_tokens, daemon=True).start()
 
     while True:
         intervalo = intervalo_dinamico()
-        print("[memebot] Buscando tokens novos...")
+        print(f"[memebot] Intervalo de busca: {intervalo} minutos")
         tokens = buscar_tokens_novos()
-        print(f"[memebot] {len(tokens)} tokens novos encontrados.")
+        print(f"[memebot] {len(tokens)} tokens novos encontrados para análise.")
 
         for token in tokens:
             contrato = token['pairAddress']
             if contrato in blacklist_tokens or contrato in tokens_monitorados:
                 continue
+
             if not analisar_token(token):
                 blacklist_tokens.add(contrato)
                 salvar_blacklist()
-                print(f"[memebot] Token {contrato[:6]} adicionado à blacklist.")
+                print(f"[memebot] Token {contrato} adicionado à blacklist (não passou nos filtros).")
                 continue
 
             nome = token['baseToken']['symbol']
@@ -202,14 +201,14 @@ def iniciar_memebot():
             if goplus.get('result', {}).get(contrato, {}).get('is_open_source') == '0':
                 blacklist_tokens.add(contrato)
                 salvar_blacklist()
-                print(f"[memebot] Token {nome} bloqueado por não ser open source.")
+                print(f"[memebot] Token {contrato} adicionado à blacklist (não é open source).")
                 continue
 
             social = verificar_social_lunar(nome)
             if not social or social['social_volume'] < 500 or social['alt_rank'] > 25:
                 blacklist_tokens.add(contrato)
                 salvar_blacklist()
-                print(f"[memebot] Token {nome} bloqueado por baixo social volume ou alt rank alto.")
+                print(f"[memebot] Token {contrato} adicionado à blacklist (baixo social volume ou alt rank).")
                 continue
 
             tokens_monitorados[contrato] = {
@@ -233,7 +232,7 @@ def iniciar_memebot():
                 f"🔗 <a href='https://dexscreener.com/bsc/{contrato}'>Ver Gráfico</a>"
             )
             enviar_mensagem(msg)
-            print(f"[memebot] Alerta enviado para token {nome}")
+            print(f"[memebot] Novo token monitorado: {nome} ({contrato})")
 
         time.sleep(intervalo * 60)
 
