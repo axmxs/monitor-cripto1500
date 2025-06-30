@@ -237,3 +237,23 @@ def iniciar_memebot():
 
         time.sleep(intervalo * 60)
 
+if __name__ == '__main__':
+    print("🔧 Enviando teste de mensagem...")
+    enviar_mensagem("✅ Teste: o bot está funcionando corretamente.")
+
+    print("🔧 Enviando alerta simulado de memecoin...")
+    enviar_mensagem(
+        "🚨 <b>NOVO ALERTA DE MEME COIN</b>\n\n"
+        "Token: <b>TEST123</b>\n"
+        "Market Cap: $123,456\n"
+        "Liquidez: $45,000\n"
+        "Volume 5min: $12,000\n"
+        "Volume 24h: $45,000\n"
+        "Preço Inicial: $0.000012\n"
+        "🔥 Social Volume: 1,200\n"
+        "🧠 Galaxy Score: 72.1\n"
+        "📈 Alt Rank: 4\n"
+        "🔗 <a href='https://dexscreener.com/bsc/0xteste123456789'>Ver Gráfico</a>"
+    )
+
+    iniciar_memebot()
