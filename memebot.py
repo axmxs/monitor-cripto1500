@@ -12,7 +12,7 @@ TOKEN = os.getenv("TOKEN")
 CHAT_ID = os.getenv("CHAT_ID")
 LUNAR_API_KEY = os.getenv("LUNAR_API_KEY")
 BSCSCAN_API_KEY = os.getenv("BSCSCAN_API_KEY")
-API_DEXTOOLS = "https://api.dexscreener.com/latest/dex/pairs/bsc"
+API_DEXTOOLS = "https://api.dexscreener.com/latest/dex/pairs"
 LUCRO_ALVO_1 = 100
 LUCRO_ALVO_2 = 200
 BLACKLIST_FILE = "blacklist.json"
@@ -96,14 +96,14 @@ def verificar_holders(token_address):
 def buscar_tokens_novos():
     try:
         r = requests.get(API_DEXTOOLS)
-        return r.json().get("pairs", [])
-    except:
+        pares = r.json().get("pairs", [])
+        return [t for t in pares if t.get("chainId") == "bsc"]
+    except Exception as e:
+        print("Erro ao buscar tokens novos:", e)
         return []
 
 def analisar_token(token):
     try:
-        if token['chainId'] != 'bsc':
-            return False
         if not token.get("baseToken") or not token.get("quoteToken"):
             return False
         if float(token['liquidity']['usd']) < 10000:
@@ -127,7 +127,8 @@ def acompanhar_tokens():
     while True:
         try:
             r = requests.get(API_DEXTOOLS)
-            tokens = r.json().get('pairs', [])
+            pares = r.json().get("pairs", [])
+            tokens = [t for t in pares if t.get("chainId") == "bsc"]
             for token in tokens:
                 contrato = token['pairAddress']
                 if contrato in tokens_monitorados or contrato in blacklist_tokens:
