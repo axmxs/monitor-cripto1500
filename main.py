@@ -4,10 +4,9 @@ import time
 import requests
 import os
 
-
 # === CONFIG ===
-TOKEN = os.getenv("TOKEN")
-CHAT_ID = os.getenv("CHAT_ID")
+TOKEN = os.environ.get("TOKEN")
+CHAT_ID = os.environ.get("CHAT_ID")
 INTERVALO_MINUTOS = 30
 
 # === GATILHOS ===
@@ -47,7 +46,7 @@ def enviar_mensagem(texto):
     try:
         requests.post(url, data=payload)
     except Exception as e:
-        print("Erro ao enviar:", e)
+        print("Erro ao enviar mensagem:", e)
 
 # === COINGECKO COM RECONEXÃO ===
 def precos_reais(tentativas=3, espera=2):
