@@ -3,10 +3,9 @@ from threading import Thread
 import time
 import requests
 import os
-from dotenv import load_dotenv
+
 
 # === CONFIG ===
-load_dotenv()
 TOKEN = os.getenv("TOKEN")
 CHAT_ID = os.getenv("CHAT_ID")
 INTERVALO_MINUTOS = 30
