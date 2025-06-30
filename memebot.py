@@ -5,12 +5,10 @@ import requests
 import os
 from datetime import datetime, timedelta
 
-# Configurações de ambiente
-TOKEN = os.environ.get("TOKEN")
-CHAT_ID = os.environ.get("CHAT_ID")
-LUNAR_API_KEY = os.environ.get("LUNAR_API_KEY")
-BSCSCAN_API_KEY = os.environ.get("BSCSCAN_API_KEY")
-
+TOKEN = os.getenv("TOKEN")
+CHAT_ID = os.getenv("CHAT_ID")
+LUNAR_API_KEY = os.getenv("LUNAR_API_KEY")
+BSCSCAN_API_KEY = os.getenv("BSCSCAN_API_KEY")
 API_DEXTOOLS = "https://api.dexscreener.com/latest/dex/pairs/bsc"
 LUCRO_ALVO_1 = 100
 LUCRO_ALVO_2 = 200
@@ -38,13 +36,13 @@ def salvar_blacklist():
 
 def enviar_mensagem(texto):
     url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
-    payload = {'chat_id': CHAT_ID, 'text': texto, 'parse_mode': 'HTML', 'disable_web_page_preview': True}
+    payload = {'chat_id': CHAT_ID, 'text': texto, 'parse_mode': 'HTML'}
     try:
-        r = requests.post(url, data=payload)
-        if r.status_code != 200:
-            print(f"Erro Telegram status {r.status_code}: {r.text}")
+        resp = requests.post(url, data=payload)
+        if resp.status_code != 200:
+            print(f"Erro ao enviar mensagem: {resp.status_code} - {resp.text}")
     except Exception as e:
-        print("Erro ao enviar mensagem:", e)
+        print("Erro ao enviar:", e)
 
 def verificar_goplus(token_address):
     try:
@@ -98,8 +96,7 @@ def buscar_tokens_novos():
     try:
         r = requests.get(API_DEXTOOLS)
         return r.json().get("pairs", [])
-    except Exception as e:
-        print("Erro ao buscar tokens novos:", e)
+    except:
         return []
 
 def analisar_token(token):
@@ -122,15 +119,17 @@ def analisar_token(token):
         if verificar_holders(token['pairAddress']) < 50:
             return False
         return True
-    except Exception as e:
-        print("Erro ao analisar token:", e)
+    except:
         return False
 
 def acompanhar_tokens():
     while True:
         try:
+            print("[memebot] Buscando tokens para monitorar...")
             r = requests.get(API_DEXTOOLS)
             tokens = r.json().get('pairs', [])
+            print(f"[memebot] {len(tokens)} tokens recebidos.")
+
             for token in tokens:
                 contrato = token['pairAddress']
                 if contrato in tokens_monitorados or contrato in blacklist_tokens:
@@ -154,9 +153,14 @@ def acompanhar_tokens():
                     msg = f"⚠️ <b>Queda de {variacao:.2f}%</b> em {nome}\nPossível rug. Avalie saída."
                     enviar_mensagem(msg)
 
-                # Remover tokens monitorados há mais de 24h
-                if datetime.utcnow() - tokens_monitorados.get(contrato, {}).get('ultima_verificacao', datetime.utcnow()) > timedelta(hours=24):
+                # Atualiza ultima verificação para controle de tempo
+                tokens_monitorados[contrato] = tokens_monitorados.get(contrato, {})
+                tokens_monitorados[contrato]['ultima_verificacao'] = datetime.utcnow()
+
+                # Remove tokens que não tiveram atualização há mais de 24h
+                if datetime.utcnow() - tokens_monitorados[contrato]['ultima_verificacao'] > timedelta(hours=24):
                     tokens_monitorados.pop(contrato, None)
+
         except Exception as e:
             print("Erro ao monitorar token:", e)
 
@@ -169,6 +173,7 @@ def intervalo_dinamico():
 
 def iniciar_memebot():
     print("🚀 Memebot iniciado com persistência de blacklist.")
+    enviar_mensagem("✅ Memebot iniciado com sucesso.")
     Thread(target=acompanhar_tokens, daemon=True).start()
 
     while True:
@@ -225,6 +230,7 @@ def iniciar_memebot():
         time.sleep(intervalo * 60)
 
 if __name__ == '__main__':
+    # Envio teste ao rodar diretamente
     print("🔧 Enviando teste de mensagem...")
     enviar_mensagem("✅ Teste: o bot está funcionando corretamente.")
 
