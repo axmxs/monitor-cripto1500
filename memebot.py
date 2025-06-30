@@ -220,11 +220,28 @@ def iniciar_memebot():
 
         time.sleep(intervalo * 60)
 
+# ======= INÍCIO DO SCRIPT =======
 if __name__ == '__main__':
-    # Teste de envio de mensagem para Telegram
-    print("🔧 Testando envio de mensagem para Telegram...")
+    # Teste de envio de mensagem simples
+    print("🔧 Enviando teste de mensagem...")
     enviar_mensagem("✅ Teste de mensagem: seu Memebot está funcionando!")
 
-    # Agora inicia o bot normalmente
-    iniciar_memebot()
+    # Teste de simulação de alerta completo de memecoin
+    print("🔧 Enviando alerta simulado de memecoin...")
+    alerta_simulado = (
+        f"🚨 <b>NOVO ALERTA DE MEME COIN</b>\n\n"
+        f"Token: <b>TESTECOIN</b>\n"
+        f"Market Cap: $28,000\n"
+        f"Liquidez: $12,000\n"
+        f"Volume 5min: $3,800\n"
+        f"Volume 24h: $24,000\n"
+        f"Preço Inicial: $0.000012\n"
+        f"🔥 Social Volume: 910\n"
+        f"🧠 Galaxy Score: 72.5\n"
+        f"📈 Alt Rank: 6\n"
+        f"🔗 <a href='https://dexscreener.com/bsc/0xteste123456789'>Ver Gráfico</a>"
+    )
+    enviar_mensagem(alerta_simulado)
 
+    # Inicia o bot normalmente
+    iniciar_memebot()
