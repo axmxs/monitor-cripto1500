@@ -5,11 +5,12 @@ import requests
 import os
 from datetime import datetime, timedelta
 
+# Configurações de ambiente
+TOKEN = os.environ.get("TOKEN")
+CHAT_ID = os.environ.get("CHAT_ID")
+LUNAR_API_KEY = os.environ.get("LUNAR_API_KEY")
+BSCSCAN_API_KEY = os.environ.get("BSCSCAN_API_KEY")
 
-TOKEN = os.getenv("TOKEN")
-CHAT_ID = os.getenv("CHAT_ID")
-LUNAR_API_KEY = os.getenv("LUNAR_API_KEY")
-BSCSCAN_API_KEY = os.getenv("BSCSCAN_API_KEY")
 API_DEXTOOLS = "https://api.dexscreener.com/latest/dex/pairs/bsc"
 LUCRO_ALVO_1 = 100
 LUCRO_ALVO_2 = 200
@@ -37,11 +38,13 @@ def salvar_blacklist():
 
 def enviar_mensagem(texto):
     url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
-    payload = {'chat_id': CHAT_ID, 'text': texto, 'parse_mode': 'HTML'}
+    payload = {'chat_id': CHAT_ID, 'text': texto, 'parse_mode': 'HTML', 'disable_web_page_preview': True}
     try:
-        requests.post(url, data=payload)
+        r = requests.post(url, data=payload)
+        if r.status_code != 200:
+            print(f"Erro Telegram status {r.status_code}: {r.text}")
     except Exception as e:
-        print("Erro ao enviar:", e)
+        print("Erro ao enviar mensagem:", e)
 
 def verificar_goplus(token_address):
     try:
@@ -95,7 +98,8 @@ def buscar_tokens_novos():
     try:
         r = requests.get(API_DEXTOOLS)
         return r.json().get("pairs", [])
-    except:
+    except Exception as e:
+        print("Erro ao buscar tokens novos:", e)
         return []
 
 def analisar_token(token):
@@ -118,7 +122,8 @@ def analisar_token(token):
         if verificar_holders(token['pairAddress']) < 50:
             return False
         return True
-    except:
+    except Exception as e:
+        print("Erro ao analisar token:", e)
         return False
 
 def acompanhar_tokens():
@@ -149,6 +154,7 @@ def acompanhar_tokens():
                     msg = f"⚠️ <b>Queda de {variacao:.2f}%</b> em {nome}\nPossível rug. Avalie saída."
                     enviar_mensagem(msg)
 
+                # Remover tokens monitorados há mais de 24h
                 if datetime.utcnow() - tokens_monitorados.get(contrato, {}).get('ultima_verificacao', datetime.utcnow()) > timedelta(hours=24):
                     tokens_monitorados.pop(contrato, None)
         except Exception as e:
@@ -218,10 +224,7 @@ def iniciar_memebot():
 
         time.sleep(intervalo * 60)
 
-# ... [todo o seu código anterior permanece igual] ...
-
 if __name__ == '__main__':
-    # Teste antes de iniciar
     print("🔧 Enviando teste de mensagem...")
     enviar_mensagem("✅ Teste: o bot está funcionando corretamente.")
 
@@ -241,4 +244,3 @@ if __name__ == '__main__':
     )
 
     iniciar_memebot()
-
