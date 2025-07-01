@@ -36,4 +36,10 @@ def main():
                 enviar_mensagem("✅ <b>Memebot rodando e API funcionando!</b>\nPrimeiro par: " + str(par_exemplo.get("baseToken", {}).get("symbol")))
             else:
                 print("⚠️ Nenhum par encontrado na resposta da API.")
-                enviar_mensage_
+                enviar_mensagem("⚠️ <b>Memebot rodando, mas nenhum par retornado da API.</b>")
+        else:
+            print("❌ Erro na API:", response.status_code)
+            enviar_mensagem(f"❌ <b>Erro ao acessar API:</b> Status {response.status_code}")
+    except Exception as e:
+        print("❌ Erro inesperado ao acessar API:", e)
+        enviar_mensagem(f"❌ <b>Erro inesperado no memebot:</b> {e}")
