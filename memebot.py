@@ -156,6 +156,8 @@ def acompanhar_tokens():
                     tokens_monitorados.pop(contrato, None)
         except Exception as e:
             print("Erro ao monitorar token:", e)
+print("✅ Testando envio do memebot")
+enviar_mensagem("✅ Teste: memebot está rodando e conseguiu enviar esta mensagem.")
 
         time.sleep(60)
 
@@ -170,6 +172,8 @@ def iniciar_memebot():
 
     while True:
         intervalo = intervalo_dinamico()
+        print(f"🔄 Rodando loop memebot às {datetime.utcnow()}")
+
         tokens = buscar_tokens_novos()
         for token in tokens:
             contrato = token['pairAddress']
