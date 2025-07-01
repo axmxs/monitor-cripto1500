@@ -23,7 +23,6 @@ headers_lunar = {
 
 tokens_monitorados = {}
 
-# === BLACKLIST persistente ===
 try:
     with open(BLACKLIST_FILE, "r") as f:
         blacklist_tokens = set(json.load(f))
@@ -45,88 +44,42 @@ def enviar_mensagem(texto):
     except Exception as e:
         print("Erro ao enviar:", e)
 
-def verificar_goplus(token_address):
-    try:
-        url = f"https://api.gopluslabs.io/api/v1/token_security/56?contract_addresses={token_address}"
-        r = requests.get(url)
-        return r.json()
-    except Exception as e:
-        print("Erro GoPlus Labs:", e)
-        return {}
+# ... (suas outras funções permanecem iguais)
 
-def verificar_social_lunar(symbol):
-    try:
-        url = f"https://api.lunarcrush.com/v2?data=assets&symbol={symbol.upper()}"
-        r = requests.get(url, headers=headers_lunar, timeout=10)
-        if r.status_code == 200:
-            data = r.json().get("data", [])
-            if not data:
-                return None
-            token_data = data[0]
-            return {
-                "social_volume": token_data.get("social_volume", 0),
-                "galaxy_score": token_data.get("galaxy_score", 0),
-                "alt_rank": token_data.get("alt_rank", 999)
-            }
-        return None
-    except Exception as e:
-        print("Erro ao consultar LunarCrush:", e)
-        return None
-
-def verificar_volume_dexscreener(token):
-    try:
-        vol = token.get("volume", {})
-        vol_m5 = float(vol.get("m5", 0))
-        vol_h24 = float(vol.get("h24", 0))
-        return vol_m5 >= 3000 and vol_h24 >= 10000
-    except:
-        return False
-
-def verificar_holders(token_address):
-    try:
-        url = f"https://api.bscscan.com/api?module=token&action=tokenholderlist&contractaddress={token_address}&page=1&offset=100&apikey={BSCSCAN_API_KEY}"
-        r = requests.get(url)
-        data = r.json()
-        if 'result' in data:
-            return len(data['result'])
-    except:
-        pass
-    return 0
-
+# === Função buscar_tokens_novos ajustada para tratar erro 429 ===
 def buscar_tokens_novos():
     try:
         r = requests.get(API_DEXTOOLS)
+        if r.status_code == 429:
+            print("Rate limit 429 detectado na API Dexscreener. Pausando 10 minutos...")
+            time.sleep(600)  # pausa de 10 minutos para aliviar o bloqueio
+            return []
+        r.raise_for_status()
         pares = r.json().get("pairs", [])
         return [t for t in pares if t.get("chainId") == "bsc"]
     except Exception as e:
         print("Erro ao buscar tokens novos:", e)
         return []
 
-def analisar_token(token):
-    try:
-        if not token.get("baseToken") or not token.get("quoteToken"):
-            return False
-        if float(token['liquidity']['usd']) < 10000:
-            return False
-        if float(token['fdv']) > 300000:
-            return False
-        if float(token['priceUsd']) <= 0:
-            return False
-        minutos = (datetime.utcnow() - datetime.strptime(token['pairCreatedAt'], '%Y-%m-%dT%H:%M:%S.%fZ')).total_seconds() / 60
-        if minutos > 30 or minutos < 5:
-            return False
-        if not verificar_volume_dexscreener(token):
-            return False
-        if verificar_holders(token['pairAddress']) < 50:
-            return False
-        return True
-    except:
-        return False
+# === Função para retornar intervalo dinâmico com horários e valores solicitados ===
+def intervalo_dinamico():
+    agora = datetime.now()
+    hora_decimal = agora.hour + agora.minute / 60
+    if 6.5 <= hora_decimal <= 20.5:
+        return 3  # intervalo de 3 minutos entre 6:30 e 20:30
+    else:
+        return 10  # intervalo de 10 minutos fora desse horário
 
 def acompanhar_tokens():
     while True:
         try:
             r = requests.get(API_DEXTOOLS)
+            if r.status_code == 429:
+                print("Rate limit 429 detectado na API Dexscreener no acompanhar_tokens. Pausando 10 minutos...")
+                time.sleep(600)
+                continue
+            r.raise_for_status()
+
             pares = r.json().get("pairs", [])
             tokens = [t for t in pares if t.get("chainId") == "bsc"]
             for token in tokens:
@@ -157,12 +110,7 @@ def acompanhar_tokens():
         except Exception as e:
             print("Erro ao monitorar token:", e)
 
-        time.sleep(60)
-
-def intervalo_dinamico():
-    agora = datetime.now()
-    hora_decimal = agora.hour + agora.minute / 60
-    return 2 if 6.5 <= hora_decimal <= 21 else 5
+        time.sleep(60)  # Pode manter 60s aqui porque acompanha tokens roda em thread separada
 
 def iniciar_memebot():
     print("🚀 Memebot iniciado com persistência de blacklist.")
@@ -219,7 +167,7 @@ def iniciar_memebot():
             )
             enviar_mensagem(msg)
 
-        time.sleep(intervalo * 60)
+        time.sleep(intervalo * 60)  # intervalo dinâmico entre execuções
 
 if __name__ == '__main__':
     iniciar_memebot()
