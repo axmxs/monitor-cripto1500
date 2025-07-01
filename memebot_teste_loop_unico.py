@@ -1,5 +1,4 @@
 import requests
-import time
 import os
 from dotenv import load_dotenv
 
@@ -24,10 +23,9 @@ def enviar_mensagem(mensagem):
 
 def main():
     print("🚀 Memebot iniciado com debug da API")
-    
-url = "https://api.dexscreener.io/latest/dex/pairs/bsc"
 
-    
+    url = "https://api.dexscreener.io/latest/dex/pairs/bsc"  # endpoint correto para BSC
+
     headers = {
         "User-Agent": "Mozilla/5.0"
     }
@@ -37,18 +35,15 @@ url = "https://api.dexscreener.io/latest/dex/pairs/bsc"
         print("🔍 Status da API:", response.status_code)
 
         if response.status_code == 200:
-            print("🧪 Conteúdo bruto da resposta (primeiros 500 caracteres):")
-            print(response.text[:500])
-            
             data = response.json()
             if "pairs" in data and len(data["pairs"]) > 0:
                 par = data["pairs"][0]
                 simbolo_base = par.get("baseToken", {}).get("symbol", "N/A")
                 simbolo_quote = par.get("quoteToken", {}).get("symbol", "N/A")
                 preco = par.get("priceUsd", "N/A")
-                
+
                 print(f"✅ Primeiro par: {simbolo_base}/{simbolo_quote} - Preço: {preco}")
-                
+
                 mensagem = f"""✅ <b>Memebot funcionando!</b>
 Par: <b>{simbolo_base}/{simbolo_quote}</b>
 Preço: <b>${preco}</b>"""
@@ -63,6 +58,5 @@ Preço: <b>${preco}</b>"""
         print("❌ Erro inesperado:", e)
         enviar_mensagem(f"❌ <b>Erro inesperado no memebot:</b> {e}")
 
-# Apenas execute o main se esse script for o principal
 if __name__ == "__main__":
     main()
