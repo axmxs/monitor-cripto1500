@@ -2,12 +2,11 @@ import requests
 import os
 from dotenv import load_dotenv
 
-# Carrega variáveis do .env
 load_dotenv()
 TOKEN = os.getenv("TOKEN")
 CHAT_ID = os.getenv("CHAT_ID")
 
-API_DEXSCREENER = "https://api.dexscreener.com/latest/dex/pairs"
+API_DEXSCREENER = "https://api.dexscreener.com/latest/dex/pairs/bsc/0x0eD7e52944161450477ee417DE9Cd3a859b14fD0"  # WBNB/BUSD
 
 def enviar_telegram(texto):
     url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
@@ -31,9 +30,10 @@ def testar_api_dexscreener():
         status = resposta.status_code
 
         if status == 200:
-            pares = resposta.json().get("pairs", [])
-            qtd = len(pares)
-            msg = f"✅ <b>API Dexscreener OK</b>\n{qtd} pares encontrados."
+            dados = resposta.json().get("pair", {})
+            nome = dados.get("baseToken", {}).get("symbol", "Desconhecido") + "/" + dados.get("quoteToken", {}).get("symbol", "???")
+            preco = dados.get("priceUsd", "N/A")
+            msg = f"✅ <b>API OK</b>\nPar: <b>{nome}</b>\nPreço: <b>${preco}</b>"
             print(msg)
         else:
             msg = f"⚠️ <b>Erro na API Dexscreener</b>\nStatus: {status}"
@@ -47,7 +47,7 @@ def testar_api_dexscreener():
         enviar_telegram(erro_msg)
 
 def main():
-    print("🚀 Iniciando teste da API Dexscreener...")
+    print("🚀 Iniciando teste da API Dexscreener com par real...")
     testar_api_dexscreener()
 
 if __name__ == "__main__":
