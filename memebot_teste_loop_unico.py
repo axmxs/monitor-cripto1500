@@ -1,62 +1,243 @@
+import json
+from threading import Thread
+import time
 import requests
 import os
+from datetime import datetime, timedelta
 from dotenv import load_dotenv
 
 load_dotenv()
 
 TOKEN = os.getenv("TOKEN")
 CHAT_ID = os.getenv("CHAT_ID")
+LUNAR_API_KEY = os.getenv("LUNAR_API_KEY")
+BSCSCAN_API_KEY = os.getenv("BSCSCAN_API_KEY")
+API_DEXTOOLS = "https://api.dexscreener.com/latest/dex/pairs/bsc"
+LUCRO_ALVO_1 = 100
+LUCRO_ALVO_2 = 200
+BLACKLIST_FILE = "blacklist.json"
 
-def enviar_mensagem(mensagem):
+headers_lunar = {
+    "Authorization": f"Bearer {LUNAR_API_KEY}"
+}
+
+tokens_monitorados = {}
+
+# === BLACKLIST persistente ===
+try:
+    with open(BLACKLIST_FILE, "r") as f:
+        blacklist_tokens = set(json.load(f))
+except:
+    blacklist_tokens = set()
+
+def salvar_blacklist():
+    try:
+        with open(BLACKLIST_FILE, "w") as f:
+            json.dump(list(blacklist_tokens), f)
+    except Exception as e:
+        print("Erro ao salvar blacklist:", e)
+
+def enviar_mensagem(texto):
     url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
-    payload = {
-        "chat_id": CHAT_ID,
-        "text": mensagem,
-        "parse_mode": "HTML"
-    }
+    payload = {'chat_id': CHAT_ID, 'text': texto, 'parse_mode': 'HTML'}
     try:
-        response = requests.post(url, json=payload)
+        response = requests.post(url, data=payload)
         if response.status_code != 200:
-            print(f"⚠️ Erro ao enviar mensagem Telegram: {response.status_code} - {response.text}")
+            print(f"Erro ao enviar mensagem Telegram: {response.status_code} - {response.text}")
     except Exception as e:
-        print("❌ Erro no envio da mensagem:", e)
+        print("Erro ao enviar mensagem Telegram:", e)
 
-def main():
-    print("🚀 Memebot iniciado com debug da API")
-
-    url = "https://api.dexscreener.io/latest/dex/pairs/bsc"  # endpoint correto para BSC
-
-    headers = {
-        "User-Agent": "Mozilla/5.0"
-    }
-
+def verificar_goplus(token_address):
     try:
-        response = requests.get(url, headers=headers, timeout=10)
-        print("🔍 Status da API:", response.status_code)
-
-        if response.status_code == 200:
-            data = response.json()
-            if "pairs" in data and len(data["pairs"]) > 0:
-                par = data["pairs"][0]
-                simbolo_base = par.get("baseToken", {}).get("symbol", "N/A")
-                simbolo_quote = par.get("quoteToken", {}).get("symbol", "N/A")
-                preco = par.get("priceUsd", "N/A")
-
-                print(f"✅ Primeiro par: {simbolo_base}/{simbolo_quote} - Preço: {preco}")
-
-                mensagem = f"""✅ <b>Memebot funcionando!</b>
-Par: <b>{simbolo_base}/{simbolo_quote}</b>
-Preço: <b>${preco}</b>"""
-                enviar_mensagem(mensagem)
-            else:
-                print("⚠️ Nenhum par encontrado.")
-                enviar_mensagem("⚠️ <b>Memebot ativo, mas nenhum par retornado da API.</b>")
+        url = f"https://api.gopluslabs.io/api/v1/token_security/56?contract_addresses={token_address}"
+        r = requests.get(url, timeout=10)
+        if r.status_code == 200:
+            return r.json()
         else:
-            print("❌ Erro ao acessar API:", response.status_code)
-            enviar_mensagem(f"❌ <b>Erro ao acessar API:</b> Status {response.status_code}")
+            print(f"GoPlus Labs retornou status {r.status_code}")
+            return {}
     except Exception as e:
-        print("❌ Erro inesperado:", e)
-        enviar_mensagem(f"❌ <b>Erro inesperado no memebot:</b> {e}")
+        print("Erro GoPlus Labs:", e)
+        return {}
 
-if __name__ == "__main__":
-    main()
+def verificar_social_lunar(symbol):
+    try:
+        url = f"https://api.lunarcrush.com/v2?data=assets&symbol={symbol.upper()}"
+        r = requests.get(url, headers=headers_lunar, timeout=10)
+        if r.status_code == 200:
+            data = r.json().get("data", [])
+            if not data:
+                return None
+            token_data = data[0]
+            return {
+                "social_volume": token_data.get("social_volume", 0),
+                "galaxy_score": token_data.get("galaxy_score", 0),
+                "alt_rank": token_data.get("alt_rank", 999)
+            }
+        else:
+            print(f"LunarCrush retornou status {r.status_code}")
+        return None
+    except Exception as e:
+        print("Erro ao consultar LunarCrush:", e)
+        return None
+
+def verificar_volume_dexscreener(token):
+    try:
+        vol = token.get("volume", {})
+        vol_m5 = float(vol.get("m5", 0))
+        vol_h24 = float(vol.get("h24", 0))
+        return vol_m5 >= 3000 and vol_h24 >= 10000
+    except:
+        return False
+
+def verificar_holders(token_address):
+    try:
+        url = f"https://api.bscscan.com/api?module=token&action=tokenholderlist&contractaddress={token_address}&page=1&offset=100&apikey={BSCSCAN_API_KEY}"
+        r = requests.get(url, timeout=10)
+        data = r.json()
+        if 'result' in data:
+            return len(data['result'])
+    except Exception as e:
+        print("Erro BscScan holders:", e)
+    return 0
+
+def buscar_tokens_novos():
+    try:
+        r = requests.get(API_DEXTOOLS, timeout=15)
+        r.raise_for_status()
+        pares = r.json().get("pairs", [])
+        return pares
+    except Exception as e:
+        print("Erro ao buscar tokens novos:", e)
+        return []
+
+def analisar_token(token):
+    try:
+        if not token.get("baseToken") or not token.get("quoteToken"):
+            return False
+        if float(token['liquidity']['usd']) < 10000:
+            return False
+        if float(token.get('fdv', 0)) > 300000:
+            return False
+        if float(token.get('priceUsd', 0)) <= 0:
+            return False
+        
+        pair_created_at = token.get('pairCreatedAt', None)
+        if not pair_created_at:
+            return False
+        
+        minutos = (datetime.utcnow() - datetime.strptime(pair_created_at, '%Y-%m-%dT%H:%M:%S.%fZ')).total_seconds() / 60
+        if minutos > 30 or minutos < 5:
+            return False
+        if not verificar_volume_dexscreener(token):
+            return False
+        if verificar_holders(token['pairAddress']) < 50:
+            return False
+        return True
+    except Exception as e:
+        print("Erro analisar token:", e)
+        return False
+
+def acompanhar_tokens():
+    while True:
+        try:
+            tokens = buscar_tokens_novos()
+            for token in tokens:
+                contrato = token['pairAddress']
+                if contrato in tokens_monitorados or contrato in blacklist_tokens:
+                    continue
+                
+                preco_atual = float(token.get('priceUsd', 0))
+                preco_inicial = tokens_monitorados.get(contrato, {}).get('preco_inicial', preco_atual)
+                variacao = ((preco_atual - preco_inicial) / preco_inicial) * 100 if preco_inicial > 0 else 0
+                nome = token['baseToken']['symbol']
+
+                if variacao >= LUCRO_ALVO_2 and not tokens_monitorados.get(contrato, {}).get("alertou2", False):
+                    msg = f"\U0001F4A5 <b>LUCRO +{variacao:.2f}%</b>\n\nToken: {nome}\nVenda sugerida. Preço: ${preco_atual:.6f}"
+                    enviar_mensagem(msg)
+                    tokens_monitorados[contrato]["alertou2"] = True
+
+                elif variacao >= LUCRO_ALVO_1 and not tokens_monitorados.get(contrato, {}).get("alertou1", False):
+                    msg = f"📈 <b>+{variacao:.2f}%</b> em {nome}\nConsidere parcial. Preço: ${preco_atual:.6f}"
+                    enviar_mensagem(msg)
+                    tokens_monitorados[contrato]["alertou1"] = True
+
+                elif variacao < -50:
+                    msg = f"⚠️ <b>Queda de {variacao:.2f}%</b> em {nome}\nPossível rug. Avalie saída."
+                    enviar_mensagem(msg)
+
+                # Atualiza a última verificação
+                tokens_monitorados[contrato]['ultima_verificacao'] = datetime.utcnow()
+
+                # Remove tokens monitorados há mais de 24h para liberar memória
+                if datetime.utcnow() - tokens_monitorados[contrato]['ultima_verificacao'] > timedelta(hours=24):
+                    tokens_monitorados.pop(contrato, None)
+        except Exception as e:
+            print("Erro ao monitorar tokens:", e)
+
+        time.sleep(60)
+
+def intervalo_dinamico():
+    agora = datetime.now()
+    hora_decimal = agora.hour + agora.minute / 60
+    return 2 if 6.5 <= hora_decimal <= 21 else 5
+
+def iniciar_memebot():
+    print("🚀 Memebot iniciado com persistência de blacklist.")
+    Thread(target=acompanhar_tokens, daemon=True).start()
+
+    while True:
+        intervalo = intervalo_dinamico()
+        tokens = buscar_tokens_novos()
+        for token in tokens:
+            contrato = token['pairAddress']
+            if contrato in blacklist_tokens or contrato in tokens_monitorados:
+                continue
+            if not analisar_token(token):
+                blacklist_tokens.add(contrato)
+                salvar_blacklist()
+                continue
+
+            nome = token['baseToken']['symbol']
+            preco = float(token['priceUsd'])
+            mc = float(token.get('fdv', 0))
+            liquidez = float(token['liquidity']['usd'])
+
+            goplus = verificar_goplus(contrato)
+            if goplus.get('result', {}).get(contrato, {}).get('is_open_source') == '0':
+                blacklist_tokens.add(contrato)
+                salvar_blacklist()
+                continue
+
+            social = verificar_social_lunar(nome)
+            if not social or social['social_volume'] < 500 or social['alt_rank'] > 25:
+                blacklist_tokens.add(contrato)
+                salvar_blacklist()
+                continue
+
+            tokens_monitorados[contrato] = {
+                "preco_inicial": preco,
+                "ultima_verificacao": datetime.utcnow(),
+                "alertou1": False,
+                "alertou2": False,
+            }
+
+            msg = (
+                f"🚨 <b>NOVO ALERTA DE MEME COIN</b>\n\n"
+                f"Token: <b>{nome}</b>\n"
+                f"Market Cap: ${mc:,.0f}\n"
+                f"Liquidez: ${liquidez:,.0f}\n"
+                f"Volume 5min: ${float(token['volume']['m5']):,.0f}\n"
+                f"Volume 24h: ${float(token['volume']['h24']):,.0f}\n"
+                f"Preço Inicial: ${preco:.6f}\n"
+                f"🔥 Social Volume: {social['social_volume']}\n"
+                f"🧠 Galaxy Score: {social['galaxy_score']}\n"
+                f"📈 Alt Rank: {social['alt_rank']}\n"
+                f"🔗 <a href='https://dexscreener.com/bsc/{contrato}'>Ver Gráfico</a>"
+            )
+            enviar_mensagem(msg)
+
+        time.sleep(intervalo * 60)
+
+if __name__ == '__main__':
+    iniciar_memebot()
