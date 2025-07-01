@@ -11,7 +11,7 @@ TOKEN = os.getenv("TOKEN")
 CHAT_ID = os.getenv("CHAT_ID")
 
 # Exemplo de URL de um par fixo (você pode ajustar para buscar dinamicamente se quiser)
-URL_DEX = "https://api.dexscreener.com/latest/dex/pairs/bsc/0x0eD7e52944161450477ee417DE9Cd3a859b14fD0"
+URL_DEX = "https://api.dexscreener.com/latest/dex/pairs/bsc/"
 
 def enviar_mensagem(mensagem):
     url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
