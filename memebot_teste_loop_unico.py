@@ -8,7 +8,6 @@ def testar_dexscreener():
         if response.status_code == 200:
             data = response.json()
             print("Dados recebidos da API Dexscreener (exemplo parcial):")
-            # Mostrar os primeiros 3 pares para evitar muito output
             pares = data.get("pairs", [])
             print(f"Total de pares recebidos: {len(pares)}")
             for i, par in enumerate(pares[:3]):
