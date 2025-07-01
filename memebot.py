@@ -46,7 +46,7 @@ def acompanhar_tokens():
             mensagem = obter_preco()
             print("🟢 Alerta enviado. Nova verificação em breve...")
             enviar_mensagem(mensagem)
-            time.sleep(3 * 60)  # verifica a cada 3 minutos
+            time.sleep(1 * 60)  # verifica a cada 3 minutos
         else:
             print("🌙 Fora do horário de verificação. Aguardando...")
             time.sleep(10 * 60)  # à noite, espera mais
