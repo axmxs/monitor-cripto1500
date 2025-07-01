@@ -25,7 +25,7 @@ def enviar_mensagem(mensagem):
 def main():
     print("🚀 Memebot iniciado com debug da API")
     
-    url = "https://api.dexscreener.io/latest/dex/pairs"  # endpoint atualizado
+    url = "url = "https://api.dexscreener.io/latest/dex/pairs/bsc"  # endpoint atualizado
     
     headers = {
         "User-Agent": "Mozilla/5.0"
