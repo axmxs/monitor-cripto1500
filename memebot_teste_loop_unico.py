@@ -1,54 +1,44 @@
 import requests
+import time
 import os
 from dotenv import load_dotenv
 
 load_dotenv()
+
 TOKEN = os.getenv("TOKEN")
 CHAT_ID = os.getenv("CHAT_ID")
 
-API_DEXSCREENER = "https://api.dexscreener.com/latest/dex/pairs/bsc/0x0eD7e52944161450477ee417DE9Cd3a859b14fD0"  # WBNB/BUSD
+URL_DEX = "https://api.dexscreener.com/latest/dex/pairs/bsc/0x0eD7e52944161450477ee417DE9Cd3a859b14fD0"
 
-def enviar_telegram(texto):
+def enviar_mensagem(mensagem):
     url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
     payload = {
-        'chat_id': CHAT_ID,
-        'text': texto,
-        'parse_mode': 'HTML'
+        "chat_id": CHAT_ID,
+        "text": mensagem
     }
     try:
-        r = requests.post(url, data=payload)
-        print("✅ Mensagem enviada para Telegram.")
-        return r.status_code == 200
+        requests.post(url, data=payload)
     except Exception as e:
-        print(f"❌ Erro ao enviar mensagem Telegram: {e}")
-        return False
+        print("❌ Erro ao enviar mensagem:", e)
 
-def testar_api_dexscreener():
+def obter_preco():
     try:
-        print("🔍 Testando requisição para API Dexscreener...")
-        resposta = requests.get(API_DEXSCREENER)
-        status = resposta.status_code
-
-        if status == 200:
-            dados = resposta.json().get("pair", {})
-            nome = dados.get("baseToken", {}).get("symbol", "Desconhecido") + "/" + dados.get("quoteToken", {}).get("symbol", "???")
-            preco = dados.get("priceUsd", "N/A")
-            msg = f"✅ <b>API OK</b>\nPar: <b>{nome}</b>\nPreço: <b>${preco}</b>"
-            print(msg)
+        response = requests.get(URL_DEX, timeout=10)
+        if response.status_code == 200:
+            data = response.json()
+            par = data["pair"]["baseToken"]["symbol"] + "/" + data["pair"]["quoteToken"]["symbol"]
+            preco = data["pair"]["priceUsd"]
+            return f"🔄 Atualização: Par {par}, Preço: ${float(preco):.2f}"
         else:
-            msg = f"⚠️ <b>Erro na API Dexscreener</b>\nStatus: {status}"
-            print(msg)
-
-        enviar_telegram(msg)
-
+            return f"⚠️ Erro {response.status_code} ao consultar a API."
     except Exception as e:
-        erro_msg = f"❌ <b>Erro ao acessar API:</b> {str(e)}"
-        print(erro_msg)
-        enviar_telegram(erro_msg)
+        return f"❌ Erro na requisição: {str(e)}"
 
 def main():
-    print("🚀 Iniciando teste da API Dexscreener com par real...")
-    testar_api_dexscreener()
+    enviar_mensagem("🚀 Iniciando loop de teste da API Dexscreener")
+    while True:
+        mensagem = obter_preco()
+        print(mensagem)
+        enviar_mensagem(mensagem)
+        time.sleep(60)  # aguarda 60 segundos
 
-if __name__ == "__main__":
-    main()
