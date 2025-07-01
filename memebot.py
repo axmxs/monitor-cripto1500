@@ -1,9 +1,7 @@
 import json
-from threading import Thread
-import time
 import requests
 import os
-from datetime import datetime, timedelta
+from datetime import datetime
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -13,8 +11,6 @@ CHAT_ID = os.getenv("CHAT_ID")
 LUNAR_API_KEY = os.getenv("LUNAR_API_KEY")
 BSCSCAN_API_KEY = os.getenv("BSCSCAN_API_KEY")
 API_DEXTOOLS = "https://api.dexscreener.com/latest/dex/pairs"
-LUCRO_ALVO_1 = 100
-LUCRO_ALVO_2 = 200
 BLACKLIST_FILE = "blacklist.json"
 
 headers_lunar = {
@@ -23,6 +19,7 @@ headers_lunar = {
 
 tokens_monitorados = {}
 
+# === BLACKLIST persistente ===
 try:
     with open(BLACKLIST_FILE, "r") as f:
         blacklist_tokens = set(json.load(f))
@@ -73,7 +70,7 @@ def verificar_social_lunar(symbol):
         print("❌ Erro ao consultar LunarCrush:", e)
         return None
 
-def verificar_volume_dexscreener(token):
+def verificar_volume(token):
     try:
         vol = token.get("volume", {})
         vol_m5 = float(vol.get("m5", 0))
@@ -104,112 +101,94 @@ def buscar_tokens_novos():
 
 def analisar_token(token):
     try:
+        nome = token['baseToken']['symbol']
         if not token.get("baseToken") or not token.get("quoteToken"):
-            print("⛔ Token sem base/quote")
+            print(f"⛔ {nome} — sem base/quote")
             return False
         if float(token['liquidity']['usd']) < 10000:
-            print(f"⛔ Liquidez baixa: {token['baseToken']['symbol']}")
+            print(f"⛔ {nome} — liquidez baixa")
             return False
         if float(token['fdv']) > 300000:
-            print(f"⛔ FDV muito alta: {token['baseToken']['symbol']}")
+            print(f"⛔ {nome} — FDV muito alta")
             return False
         if float(token['priceUsd']) <= 0:
-            print(f"⛔ Preço inválido: {token['baseToken']['symbol']}")
+            print(f"⛔ {nome} — preço inválido")
             return False
         minutos = (datetime.utcnow() - datetime.strptime(token['pairCreatedAt'], '%Y-%m-%dT%H:%M:%S.%fZ')).total_seconds() / 60
         if minutos > 30 or minutos < 5:
-            print(f"⛔ Tempo de vida fora do intervalo: {token['baseToken']['symbol']} ({minutos:.1f} min)")
+            print(f"⛔ {nome} — tempo de vida {minutos:.1f}min")
             return False
-        if not verificar_volume_dexscreener(token):
-            print(f"⛔ Volume insuficiente: {token['baseToken']['symbol']}")
+        if not verificar_volume(token):
+            print(f"⛔ {nome} — volume insuficiente")
             return False
         holders = verificar_holders(token['pairAddress'])
         if holders < 50:
-            print(f"⛔ Poucos holders: {token['baseToken']['symbol']} ({holders})")
+            print(f"⛔ {nome} — poucos holders ({holders})")
             return False
         return True
     except Exception as e:
         print("❌ Erro ao analisar token:", e)
         return False
 
-def intervalo_dinamico():
-    agora = datetime.now()
-    hora_decimal = agora.hour + agora.minute / 60
-    return 2 if 6.5 <= hora_decimal <= 21 else 5
+def main():
+    print("🧪 Teste Memebot iniciado — loop único")
+    enviar_mensagem("🧪 <b>Teste Memebot Loop Único</b> iniciado.")
 
-def iniciar_memebot():
-    print("🚀 Memebot iniciado com debug")
-    enviar_mensagem("🧪 <b>DEBUG</b>: Memebot rodando com sucesso!")
+    tokens = buscar_tokens_novos()
+    print(f"📊 {len(tokens)} tokens encontrados")
 
-    while True:
-        print(f"\n🔁 Loop iniciado às {datetime.utcnow().strftime('%H:%M:%S')}")
+    for token in tokens:
+        contrato = token['pairAddress']
+        nome = token['baseToken']['symbol']
 
-        tokens = buscar_tokens_novos()
-        print(f"📊 {len(tokens)} tokens encontrados na BSC")
+        if contrato in blacklist_tokens:
+            continue
 
-        for token in tokens:
-            contrato = token['pairAddress']
-            nome = token['baseToken']['symbol']
+        if not analisar_token(token):
+            blacklist_tokens.add(contrato)
+            salvar_blacklist()
+            continue
 
-            if contrato in blacklist_tokens or contrato in tokens_monitorados:
-                continue
+        goplus = verificar_goplus(contrato)
+        if goplus.get('result', {}).get(contrato, {}).get('is_open_source') == '0':
+            print(f"🛑 {nome} — rejeitado pelo GoPlus (não open source)")
+            blacklist_tokens.add(contrato)
+            salvar_blacklist()
+            continue
 
-            if not analisar_token(token):
-                print(f"🔒 {nome} rejeitado — não passou nos filtros")
-                blacklist_tokens.add(contrato)
-                salvar_blacklist()
-                continue
+        social = verificar_social_lunar(nome)
+        if not social:
+            print(f"📉 {nome} — rejeitado por falta de social data")
+            blacklist_tokens.add(contrato)
+            salvar_blacklist()
+            continue
+        if social['social_volume'] < 500 or social['alt_rank'] > 25:
+            print(f"📉 {nome} — social_volume={social['social_volume']}, alt_rank={social['alt_rank']}")
+            blacklist_tokens.add(contrato)
+            salvar_blacklist()
+            continue
 
-            goplus = verificar_goplus(contrato)
-            if goplus.get('result', {}).get(contrato, {}).get('is_open_source') == '0':
-                print(f"🛑 {nome} rejeitado pelo GoPlus (não open source)")
-                blacklist_tokens.add(contrato)
-                salvar_blacklist()
-                continue
+        preco = float(token['priceUsd'])
+        mc = float(token.get('fdv', 0))
+        liquidez = float(token['liquidity']['usd'])
 
-            social = verificar_social_lunar(nome)
-            if not social:
-                print(f"📉 {nome} rejeitado — sem dados sociais")
-                blacklist_tokens.add(contrato)
-                salvar_blacklist()
-                continue
-            if social['social_volume'] < 500 or social['alt_rank'] > 25:
-                print(f"📉 {nome} rejeitado por social: vol={social['social_volume']} alt_rank={social['alt_rank']}")
-                blacklist_tokens.add(contrato)
-                salvar_blacklist()
-                continue
+        msg = (
+            f"🚨 <b>NOVO ALERTA DE MEME COIN</b>\n\n"
+            f"Token: <b>{nome}</b>\n"
+            f"Market Cap: ${mc:,.0f}\n"
+            f"Liquidez: ${liquidez:,.0f}\n"
+            f"Volume 5min: ${float(token['volume']['m5']):,.0f}\n"
+            f"Volume 24h: ${float(token['volume']['h24']):,.0f}\n"
+            f"Preço Inicial: ${preco:.6f}\n"
+            f"🔥 Social Volume: {social['social_volume']}\n"
+            f"🧠 Galaxy Score: {social['galaxy_score']}\n"
+            f"📈 Alt Rank: {social['alt_rank']}\n"
+            f"🔗 <a href='https://dexscreener.com/bsc/{contrato}'>Ver Gráfico</a>"
+        )
+        print(f"✅ ENVIANDO ALERTA: {nome}")
+        enviar_mensagem(msg)
 
-            preco = float(token['priceUsd'])
-            mc = float(token.get('fdv', 0))
-            liquidez = float(token['liquidity']['usd'])
-
-            tokens_monitorados[contrato] = {
-                "preco_inicial": preco,
-                "ultima_verificacao": datetime.utcnow(),
-                "alertou1": False,
-                "alertou2": False,
-            }
-
-            print(f"✅ Token ACEITO: {nome} — enviando alerta")
-
-            msg = (
-                f"🚨 <b>NOVO ALERTA DE MEME COIN</b>\n\n"
-                f"Token: <b>{nome}</b>\n"
-                f"Market Cap: ${mc:,.0f}\n"
-                f"Liquidez: ${liquidez:,.0f}\n"
-                f"Volume 5min: ${float(token['volume']['m5']):,.0f}\n"
-                f"Volume 24h: ${float(token['volume']['h24']):,.0f}\n"
-                f"Preço Inicial: ${preco:.6f}\n"
-                f"🔥 Social Volume: {social['social_volume']}\n"
-                f"🧠 Galaxy Score: {social['galaxy_score']}\n"
-                f"📈 Alt Rank: {social['alt_rank']}\n"
-                f"🔗 <a href='https://dexscreener.com/bsc/{contrato}'>Ver Gráfico</a>"
-            )
-            enviar_mensagem(msg)
-
-        intervalo = intervalo_dinamico()
-        print(f"⏳ Aguardando {intervalo} minutos para o próximo loop...\n")
-        time.sleep(intervalo * 60)
+    print("✅ Loop finalizado.")
 
 if __name__ == '__main__':
-    iniciar_memebot()
+    main()
