@@ -35,12 +35,16 @@ def obter_preco():
         return f"❌ Erro na requisição: {str(e)}"
 
 def iniciar_memebot():
+    from threading import Thread  # <- Reimporta aqui, garante visibilidade
+
     print("🚀 Memebot iniciado com persistência de blacklist.")
     Thread(target=acompanhar_tokens, daemon=True).start()
 
     while True:
         intervalo = intervalo_dinamico()
         tokens = buscar_tokens_novos()
+        # ... o restante do seu código segue normal ...
+
         for token in tokens:
             # ... seu código atual ...
             enviar_mensagem(msg)
