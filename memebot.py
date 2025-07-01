@@ -34,11 +34,21 @@ def obter_preco():
     except Exception as e:
         return f"❌ Erro na requisição: {str(e)}"
 
-def main():
-    enviar_mensagem("🚀 Iniciando loop de teste da API Dexscreener")
+def iniciar_memebot():
+    print("🚀 Memebot iniciado com persistência de blacklist.")
+    Thread(target=acompanhar_tokens, daemon=True).start()
+
     while True:
-        mensagem = obter_preco()
-        print(mensagem)
-        enviar_mensagem(mensagem)
-        time.sleep(60)  # aguarda 60 segundos
+        intervalo = intervalo_dinamico()
+        tokens = buscar_tokens_novos()
+        for token in tokens:
+            # ... seu código atual ...
+            enviar_mensagem(msg)
+
+        time.sleep(intervalo * 60)
+
+
+if __name__ == '__main__':
+    iniciar_memebot()
+
 
