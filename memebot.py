@@ -9,8 +9,7 @@ load_dotenv()
 TOKEN = os.getenv("TOKEN")
 CHAT_ID = os.getenv("CHAT_ID")
 API_DEXSCREENER = "https://api.dexscreener.com/latest/dex/pairs/bsc"
-
-LIQUIDEZ_MINIMA = 10000  # Exemplo: apenas pares com pelo menos $10.000 em liquidez
+LIQUIDEZ_MINIMA = 10000
 
 def enviar_mensagem(mensagem):
     url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
@@ -20,9 +19,7 @@ def enviar_mensagem(mensagem):
         "parse_mode": "HTML"
     }
     try:
-        response = requests.post(url, data=payload)
-        if response.status_code != 200:
-            print("❌ Erro ao enviar mensagem:", response.text)
+        requests.post(url, data=payload)
     except Exception as e:
         print("❌ Erro ao enviar mensagem:", e)
 
@@ -30,52 +27,38 @@ def buscar_pares_recentes():
     try:
         response = requests.get(API_DEXSCREENER, timeout=10)
         if response.status_code != 200:
-            print("⚠️ Erro ao consultar a API:", response.status_code)
+            print("⚠️ Erro na API:", response.status_code)
             return []
 
-        data = response.json().get("pairs", [])
-        pares_filtrados = []
-
-        for par in data:
+        pares = []
+        for par in response.json().get("pairs", []):
             try:
-                simbolo = par["baseToken"]["symbol"]
-                quote = par["quoteToken"]["symbol"]
                 preco = float(par["priceUsd"])
                 liquidez = float(par["liquidity"]["usd"])
-                link = f"https://dexscreener.com/bsc/{par['pairAddress']}"
-
                 if liquidez >= LIQUIDEZ_MINIMA and preco > 0:
-                    pares_filtrados.append({
-                        "simbolo": simbolo,
-                        "quote": quote,
+                    pares.append({
+                        "simbolo": par["baseToken"]["symbol"],
+                        "quote": par["quoteToken"]["symbol"],
                         "preco": preco,
                         "liquidez": liquidez,
-                        "link": link
+                        "link": f"https://dexscreener.com/bsc/{par['pairAddress']}"
                     })
-
-            except Exception as e:
-                continue  # Ignora pares com dados inválidos
-
-        return pares_filtrados
-
+            except:
+                continue
+        return pares
     except Exception as e:
         print("❌ Erro ao buscar pares:", e)
         return []
 
 def intervalo_dinamico():
-    agora = datetime.now()
-    hora = agora.hour + agora.minute / 60
-    if 6.5 <= hora <= 20.5:
-        return 3  # minutos
-    else:
-        return 10  # fora do horário ativo
+    hora = datetime.now().hour + datetime.now().minute / 60
+    return 3 if 6.5 <= hora <= 20.5 else 10
 
-def iniciar_monitoramento():
-    print("🚀 Memebot ativo. Monitorando pares recentes da BSC...")
+def iniciar_memebot():
+    print("🚀 Memebot iniciado.")
     while True:
         pares = buscar_pares_recentes()
-
-        for par in pares[:3]:  # Envia só os 3 primeiros pares com melhor liquidez
+        for par in pares[:3]:
             mensagem = (
                 f"📡 <b>NOVO PAR DETECTADO</b>\n"
                 f"Token: <b>{par['simbolo']}/{par['quote']}</b>\n"
@@ -84,10 +67,6 @@ def iniciar_monitoramento():
                 f"🔗 <a href='{par['link']}'>Ver no Dexscreener</a>"
             )
             enviar_mensagem(mensagem)
-
         tempo = intervalo_dinamico()
-        print(f"🕒 Aguardando {tempo} minutos para nova verificação...\n")
+        print(f"🕒 Aguardando {tempo} minutos...\n")
         time.sleep(tempo * 60)
-
-if __name__ == '__main__':
-    iniciar_monitoramento()
