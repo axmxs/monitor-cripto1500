@@ -20,7 +20,9 @@ CHAT_ID          = os.getenv("CHAT_ID")
 LUNAR_API_KEY    = os.getenv("LUNAR_API_KEY")
 BSCSCAN_API_KEY  = os.getenv("BSCSCAN_API_KEY")
 
-API_DEXTOOLS     = "https://api.dexscreener.com/latest/dex/pairs"  # ✅ CORRIGIDO
+# URL correta para pegar pares da Binance Smart Chain na Dexscreener
+API_DEXTOOLS     = "https://api.dexscreener.com/latest/dex/search?q=binance-smart-chain"
+
 LUCRO_ALVO_1     = float(os.getenv("LUCRO_ALVO_1", 100))
 LUCRO_ALVO_2     = float(os.getenv("LUCRO_ALVO_2", 200))
 BLACKLIST_FILE   = "blacklist.json"
