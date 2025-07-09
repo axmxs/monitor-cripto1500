@@ -31,7 +31,7 @@ tokens_monitorados = {}
 try:
     with open(BLACKLIST_FILE, "r") as f:
         blacklist_tokens = set(json.load(f))
-except:
+except Exception:
     blacklist_tokens = set()
 
 def salvar_blacklist():
@@ -63,7 +63,8 @@ def buscar_tokens_novos():
     try:
         data = fetch_json(API_DEXTOOLS)
         pares = data.get("pairs", [])
-        return [t for t in pares if t.get("chainId") == "bsc"]
+        # chainId vem como int, então filtrar por inteiro 56 para BSC
+        return [t for t in pares if t.get("chainId") == 56]
     except requests.HTTPError as e:
         if e.response.status_code == 429:
             logging.warning("Rate limit 429 — pausing 10min")
@@ -79,23 +80,26 @@ def acompanhar_tokens():
     while True:
         try:
             data = fetch_json(API_DEXTOOLS)
-            pares = [t for t in data.get("pairs", []) if t.get("chainId") == "bsc"]
+            pares = [t for t in data.get("pairs", []) if t.get("chainId") == 56]
 
-            # Checa variação para cada token já registrado
+            # Remover tokens monitorados sem atualização há mais de 24h
             for token in list(tokens_monitorados):
                 info = tokens_monitorados[token]
                 if datetime.utcnow() - info["ultima_verificacao"] > timedelta(hours=24):
                     tokens_monitorados.pop(token, None)
-                    continue
+                    logging.info(f"Token {token} removido por inatividade.")
 
             for t in pares:
                 addr = t["pairAddress"]
                 if addr in blacklist_tokens or addr not in tokens_monitorados:
                     continue
 
-                preco_atual = float(t["priceUsd"])
+                preco_atual = float(t.get("priceUsd", 0))
+                if preco_atual <= 0:
+                    continue  # ignora preço inválido
+
                 inicial = tokens_monitorados[addr]["preco_inicial"]
-                variacao = (preco_atual - inicial) / inicial * 100
+                variacao = (preco_atual - inicial) / inicial * 100 if inicial > 0 else 0
 
                 if variacao >= LUCRO_ALVO_2 and not tokens_monitorados[addr]["alertou2"]:
                     enviar_mensagem(f"🚨 <b>+{variacao:.2f}%</b> em {t['baseToken']['symbol']} — venda sugerida.")
@@ -105,8 +109,10 @@ def acompanhar_tokens():
                     enviar_mensagem(f"📈 +{variacao:.2f}% em {t['baseToken']['symbol']} — considerar parcial.")
                     tokens_monitorados[addr]["alertou1"] = True
 
-                elif variacao <= -50:
+                elif variacao <= -50 and addr not in blacklist_tokens:
                     enviar_mensagem(f"⚠️ Queda de {variacao:.2f}% em {t['baseToken']['symbol']} — possível rug pull.")
+                    blacklist_tokens.add(addr)
+                    salvar_blacklist()
 
                 tokens_monitorados[addr]["ultima_verificacao"] = datetime.utcnow()
 
@@ -127,8 +133,10 @@ def iniciar_memebot():
             if addr in blacklist_tokens or addr in tokens_monitorados:
                 continue
 
-            # Simples validação inicial (pode estender com BSCSCAN, LUNAR etc)
-            preco = float(t["priceUsd"])
+            preco = float(t.get("priceUsd", 0))
+            if preco <= 0:
+                continue  # Ignorar tokens sem preço válido
+
             tokens_monitorados[addr] = {
                 "preco_inicial": preco,
                 "ultima_verificacao": datetime.utcnow(),
@@ -140,7 +148,7 @@ def iniciar_memebot():
                 f"🚨 <b>NOVO MEME COIN</b>\n\n"
                 f"Token: <b>{t['baseToken']['symbol']}</b>\n"
                 f"Preço: ${preco:.6f}\n"
-                f"Volume 24h: ${float(t['volume']['h24']):,.0f}\n"
+                f"Volume 24h: ${float(t.get('volume', {}).get('h24', 0)):,}\n"
                 f"🔗 https://dexscreener.com/bsc/{addr}"
             )
             enviar_mensagem(msg)
