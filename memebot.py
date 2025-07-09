@@ -1,5 +1,3 @@
-# memebot.py
-
 import os
 import time
 import json
@@ -8,28 +6,23 @@ import requests
 from datetime import datetime, timedelta
 from threading import Thread
 
-# === CONFIGURAÇÃO DE LOG ===
 logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(message)s",
     level=logging.INFO
 )
 
-# === VARIÁVEIS DE AMBIENTE ===
 TOKEN            = os.getenv("TOKEN")
 CHAT_ID          = os.getenv("CHAT_ID")
 LUNAR_API_KEY    = os.getenv("LUNAR_API_KEY")
 BSCSCAN_API_KEY  = os.getenv("BSCSCAN_API_KEY")
 
-# URL correta para pegar pares da Binance Smart Chain na Dexscreener
-API_DEXTOOLS     = "https://api.dexscreener.com/latest/dex/search?q=binance-smart-chain"
-
+API_DEXTOOLS     = "https://api.dexscreener.com/latest/dex/pairs"
 LUCRO_ALVO_1     = float(os.getenv("LUCRO_ALVO_1", 100))
 LUCRO_ALVO_2     = float(os.getenv("LUCRO_ALVO_2", 200))
 BLACKLIST_FILE   = "blacklist.json"
 
 tokens_monitorados = {}
 
-# === BLACKLIST PERSISTENTE ===
 try:
     with open(BLACKLIST_FILE, "r") as f:
         blacklist_tokens = set(json.load(f))
@@ -54,19 +47,26 @@ def enviar_mensagem(texto: str):
     except Exception as e:
         logging.error(f"Erro ao enviar Telegram: {e}")
 
-# === CHAMADAS COMUNS ===
 def fetch_json(url):
-    r = requests.get(url, timeout=10)
-    r.raise_for_status()
-    return r.json()
+    try:
+        r = requests.get(url, timeout=10)
+        logging.info(f"Requisição GET {url} — status {r.status_code}")
+        r.raise_for_status()
+        data = r.json()
+        json_preview = json.dumps(data)[:1000]  # mostra só os primeiros 1000 caracteres
+        logging.info(f"Resposta JSON (preview): {json_preview}")
+        return data
+    except Exception as e:
+        logging.error(f"Erro fetch_json: {e}")
+        raise
 
-# === BUSCA DE NOVOS TOKENS ===
 def buscar_tokens_novos():
     try:
         data = fetch_json(API_DEXTOOLS)
         pares = data.get("pairs", [])
-        # chainId vem como int, então filtrar por inteiro 56 para BSC
-        return [t for t in pares if t.get("chainId") == 56]
+        bsc_pares = [t for t in pares if t.get("chainId") == 56]
+        logging.info(f"Total pares: {len(pares)} — Pares BSC filtrados: {len(bsc_pares)}")
+        return bsc_pares
     except requests.HTTPError as e:
         if e.response.status_code == 429:
             logging.warning("Rate limit 429 — pausing 10min")
@@ -77,14 +77,13 @@ def buscar_tokens_novos():
         logging.error(f"Erro ao buscar tokens novos: {e}")
     return []
 
-# === MONITORAMENTO CONTÍNUO ===
 def acompanhar_tokens():
     while True:
         try:
             data = fetch_json(API_DEXTOOLS)
             pares = [t for t in data.get("pairs", []) if t.get("chainId") == 56]
+            logging.info(f"[Monitor] Pares BSC recebidos: {len(pares)}")
 
-            # Remover tokens monitorados sem atualização há mais de 24h
             for token in list(tokens_monitorados):
                 info = tokens_monitorados[token]
                 if datetime.utcnow() - info["ultima_verificacao"] > timedelta(hours=24):
@@ -98,7 +97,7 @@ def acompanhar_tokens():
 
                 preco_atual = float(t.get("priceUsd", 0))
                 if preco_atual <= 0:
-                    continue  # ignora preço inválido
+                    continue
 
                 inicial = tokens_monitorados[addr]["preco_inicial"]
                 variacao = (preco_atual - inicial) / inicial * 100 if inicial > 0 else 0
@@ -123,7 +122,6 @@ def acompanhar_tokens():
 
         time.sleep(60)
 
-# === LOOP PRINCIPAL ===
 def iniciar_memebot():
     logging.info("🚀 Memebot iniciado.")
     Thread(target=acompanhar_tokens, daemon=True).start()
@@ -137,7 +135,7 @@ def iniciar_memebot():
 
             preco = float(t.get("priceUsd", 0))
             if preco <= 0:
-                continue  # Ignorar tokens sem preço válido
+                continue
 
             tokens_monitorados[addr] = {
                 "preco_inicial": preco,
