@@ -53,7 +53,7 @@ def fetch_json(url):
         logging.info(f"Requisição GET {url} — status {r.status_code}")
         r.raise_for_status()
         data = r.json()
-        json_preview = json.dumps(data)[:1000]  # mostra só os primeiros 1000 caracteres
+        json_preview = json.dumps(data)[:1000]
         logging.info(f"Resposta JSON (preview): {json_preview}")
         return data
     except Exception as e:
@@ -64,7 +64,7 @@ def buscar_tokens_novos():
     try:
         data = fetch_json(API_DEXTOOLS)
         pares = data.get("pairs", [])
-        bsc_pares = [t for t in pares if t.get("chainId") == 56]
+        bsc_pares = [t for t in pares if t.get("chainId", "").lower() == "bsc"]
         logging.info(f"Total pares: {len(pares)} — Pares BSC filtrados: {len(bsc_pares)}")
         return bsc_pares
     except requests.HTTPError as e:
@@ -81,7 +81,7 @@ def acompanhar_tokens():
     while True:
         try:
             data = fetch_json(API_DEXTOOLS)
-            pares = [t for t in data.get("pairs", []) if t.get("chainId") == 56]
+            pares = [t for t in data.get("pairs", []) if t.get("chainId", "").lower() == "bsc"]
             logging.info(f"[Monitor] Pares BSC recebidos: {len(pares)}")
 
             for token in list(tokens_monitorados):
